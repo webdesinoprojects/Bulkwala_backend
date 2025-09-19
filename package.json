@@ -1,5 +1,15 @@
 {
-	"dependencies": {
-		"Bulkwala_backend": "link:"
-	}
+  "name": "Bulkwala_backend",
+  "version": "1.0.0",
+  "description": "",
+  "main": "src/index.js",
+  "type": "module",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "dev" : "nodemon src/index.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "packageManager": "pnpm@10.13.1"
 }
