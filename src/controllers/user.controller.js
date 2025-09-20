@@ -2,7 +2,10 @@ import User from "../models/user.model.js";
 import { ApiError } from "../utils/ApiError.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { cookieOptions } from "../utils/constant.js";
-import { sendVerificationEmail } from "../utils/email.js";
+import {
+  sendResetPasswordEmail,
+  sendVerificationEmail,
+} from "../utils/email.js";
 
 const registerUser = asyncHandler(async (req, res) => {
   const { name, email, password, phone } = req.body;
@@ -124,4 +127,127 @@ const verifyUser = asyncHandler(async (req, res) => {
     );
 });
 
-export { registerUser, loginUser, updateUser, getuserProfile, verifyUser };
+const forgetPassword = asyncHandler(async (req, res) => {
+  const { email } = req.body;
+  const user = await User.findOne({ email });
+  if (!user) {
+    throw new ApiError(404, "User not found");
+  }
+  // Generate a secure reset token
+  const resetPasswordToken = crypto.randomBytes(32).toString("hex");
+  const resetPasswordExpiresAt = new Date(
+    Date.now() + process.env.RESET_PASSWORD_EXPIRY
+  );
+
+  // Save the token and its expiry to the user in the database
+  user.resetPasswordToken = resetPasswordToken;
+  user.resetPasswordExpiresAt = resetPasswordExpiresAt;
+  await user.save({ validateBeforeSave: false });
+
+  // Send the password reset email
+  await sendResetPasswordEmail(user.email, user._id, resetPasswordToken);
+});
+
+const resetPassword = asyncHandler(async (req, res) => {
+  const { userid, token } = req.params;
+  const { newPassword } = req.body;
+
+  const user = await User.findById(userid);
+
+  if (!user) {
+    throw new ApiError(404, "User not found");
+  }
+  if (
+    user.resetPasswordToken !== token ||
+    user.resetPasswordExpiresAt < new Date()
+  ) {
+    throw new ApiError(400, "Invalid or expired reset token");
+  }
+
+  user.password = newPassword;
+
+  user.resetPasswordToken = undefined;
+  user.resetPasswordExpiresAt = undefined;
+
+  await user.save();
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, user, "Password Reset Successfully"));
+});
+
+const changePassword = asyncHandler(async (req, res) => {
+  const { email } = req.body;
+  const user = await User.findById(email);
+  if (!user) {
+    throw new ApiError(404, "User not found");
+  }
+
+  // Generate a secure reset token
+  const resetPasswordToken = crypto.randomBytes(32).toString("hex");
+  const resetPasswordExpiresAt = new Date(
+    Date.now() + process.env.RESET_PASSWORD_EXPIRY
+  );
+
+  // Save the token and its expiry to the user in the database
+  user.resetPasswordToken = resetPasswordToken;
+  user.resetPasswordExpiresAt = resetPasswordExpiresAt;
+  await user.save({ validateBeforeSave: false });
+
+  // Send the password reset email
+  await sendResetPasswordEmail(user.email, user._id, resetPasswordToken);
+});
+
+const refreshUserToken = asyncHandler(async (req, res) => {
+  const refreshTokenFromCookie = req.cookies.refreshToken;
+  if (!refreshTokenFromCookie) {
+    throw new ApiError(401, "Refresh token not found");
+  }
+
+  const user = await User.findOne({ refreshToken: refreshTokenFromCookie });
+  if (!user) {
+    throw new ApiError(401, "Invalid refresh token");
+  }
+
+  if (user.refreshTokenExpireAt < new Date()) {
+    throw new ApiError(401, "Refresh token expired. Please log in again.");
+  }
+
+  // Generate new tokens
+  const { accessToken, refreshToken } = user.generateJWT();
+
+  // Database mein naya refreshToken save karein
+  user.refreshToken = refreshToken;
+  await user.save({ validateBeforeSave: false });
+
+  return res
+    .status(200)
+    .cookie("accessToken", accessToken, cookieOptions)
+    .cookie("refreshToken", refreshToken, cookieOptions)
+    .json(new ApiResponse(200, null, "Access token refreshed successfully"));
+});
+
+const logoutUser = asyncHandler(async (req, res) => {
+  // const accessToken = req.cookies.accessToken;
+  // const refreshToken = req.cookies.refreshToken;
+
+  res.clearCookie("accessToken", cookieOptions);
+  res.clearCookie("refreshToken", cookieOptions);
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, null, "User logged out successfully"));
+});
+
+export {
+  registerUser,
+  loginUser,
+  updateUser,
+  getuserProfile,
+  verifyUser,
+  forgetPassword,
+  resetPassword,
+  refreshUserToken,
+  changePassword,
+  logoutUser,
+};

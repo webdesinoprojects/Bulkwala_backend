@@ -5,11 +5,21 @@ import {
   updateUser,
   getuserProfile,
   verifyUser,
+  forgetPassword,
+  resetPassword,
+  refreshUserToken,
+  changePassword,
+  logoutUser,
 } from "../controllers/user.controller.js";
-import { createuserSchema } from "../validators/createuserSchema.js";
 import { validateData } from "../middleware/validate.js";
-import { loginuserSchema } from "../validators/loginuserSchema.js";
-import { updateuserSchema } from "../validators/updateuserSchema.js";
+import {
+  createuserSchema,
+  updateuserSchema,
+  loginuserSchema,
+  forgetPasswordSchema,
+  resetPasswordSchema,
+  chnagePasswordSchema,
+} from "../validators/user.Schema.js";
 import isLoggedIn from "../middleware/auth.middlware.js";
 
 const router = express.Router();
@@ -21,4 +31,16 @@ router
   .put(validateData(updateuserSchema), isLoggedIn, updateUser);
 router.route("/profile").get(isLoggedIn, getuserProfile);
 router.route("/verify/:userid").post(verifyUser);
+router
+  .route("/forget-password")
+  .post(validateData(forgetPasswordSchema), forgetPassword);
+router
+  .route("/change-password")
+  .post(validateData(chnagePasswordSchema), isLoggedIn, changePassword);
+router
+  .route("/reset-password/:userid/:token")
+  .post(validateData(resetPasswordSchema), resetPassword);
+router.route("/refresh-token").post(refreshUserToken);
+router.route("/logout").post(isLoggedIn, logoutUser);
+
 export default router;
