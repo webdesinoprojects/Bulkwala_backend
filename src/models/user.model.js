@@ -1,6 +1,7 @@
 import mongoose, { Schema } from "mongoose";
 import bcrypt from "bcryptjs";
-
+import jwt from "jsonwebtoken";
+import { availableUserRoles, userRoleEnum } from "../utils/constant.js";
 const userSchema = new Schema(
   {
     name: {
@@ -13,21 +14,27 @@ const userSchema = new Schema(
       type: String,
       required: true,
       unique: true,
-      lowercase: true,
-      match: [/^\S+@\S+\.\S+$/, "Please use a valid email address"],
+      trim: true,
+      minLength: [4, "Email must be at least 4 characters long"],
+      match: [
+        /^\w+([\.-]?\w+)*@\w+([\.-]?\w+)*(\.\w{2,3})+$/,
+        "Please provide a valid email",
+      ],
+      maxLength: [50, "Email must be at most 50 characters long"],
     },
 
     password: {
       type: String,
       required: true,
       minlength: 6,
-      select: false, // Don't return password by default
+      select: false,
     },
 
     role: {
       type: String,
-      enum: ["customer", "admin", "seller"],
-      default: "customer",
+      enum: availableUserRoles,
+      default: userRoleEnum.CUSTOMER,
+      optional: true,
     },
 
     address: {
@@ -41,6 +48,21 @@ const userSchema = new Schema(
     phone: {
       type: String,
     },
+
+    avatar: {
+      type: String,
+      default: "",
+    },
+    isVerified: {
+      type: Boolean,
+      default: false,
+    },
+    refreshToken: String,
+    refreshTokenExpireAt: Date,
+    resetPasswordToken: String,
+    resetPasswordExpiresAt: Date,
+    verificationToken: String,
+    verificationTokenExpiresAt: Date,
   },
   { timestamps: true }
 );
@@ -55,6 +77,27 @@ userSchema.methods.isPasswordCorrect = async function (candidatePassword) {
   return await bcrypt.compare(candidatePassword, this.password);
 };
 
+userSchema.methods.generateJWT = function () {
+  const accessToken = jwt.sign(
+    {
+      _id: this._id,
+      name: this.name,
+      email: this.email,
+      role: this.role,
+    },
+    ACCESS_TOKEN_SECRET,
+    { expiresIn: ACCESS_TOKEN_EXPIRES_IN }
+  );
+
+  const refreshToken = jwt.sign(
+    {
+      _id: this._id,
+    },
+    REFRESH_TOKEN_SECRET,
+    { expiresIn: REFRESH_TOKEN_EXPIRES_IN }
+  );
+  return { accessToken, refreshToken };
+};
 const User = mongoose.model("User", userSchema);
 
 export default User;
