@@ -17,22 +17,30 @@ const subcategorySchema = new mongoose.Schema(
       type: String,
       required: true,
     },
-    price: {
-      type: Number,
+
+    // link to parent category
+    category: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Category",
       required: true,
-      min: 0,
     },
-    // sample_price: {
-    //   type: Number,
-    //   required: true,
-    //   min: 0,
-    // },
+
+    // Soft-delete
+    isDeleted: { type: Boolean, default: false },
+    deletedAt: { type: Date, default: null },
+    deletedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      default: null,
+    },
   },
   { timestamps: true }
 );
 
-subcategorySchema.index({ slug: 1 });
-
+subcategorySchema.index(
+  { slug: 1 },
+  { unique: true, partialFilterExpression: { isDeleted: { $eq: false } } }
+);
 const Subcategory = mongoose.model("Subcategory", subcategorySchema);
 
 export default Subcategory;

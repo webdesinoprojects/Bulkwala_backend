@@ -35,7 +35,7 @@ export async function sendResetPasswordEmail(toEmail, userId, resetToken) {
     const resetLink = `${process.env.FRONTEND_URL}/reset-password/${userId}/${resetToken}`;
 
     const { data, error } = await resend.emails.send({
-      from: "no-reply@infobrain.dpwebfire.com",
+      from: "no-reply@bulkwala.com",
       to: [toEmail],
       subject: "Password Reset Request",
       html: `
