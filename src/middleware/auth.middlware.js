@@ -33,4 +33,21 @@ const isSeller = async (req, _res, next) => {
   next();
 };
 
-export { isLoggedIn, isAdmin, isSeller };
+const isAdminOrSeller = (req, _res, next) => {
+  if (
+    req.user.role === userRoleEnum.ADMIN ||
+    req.user.role === userRoleEnum.SELLER
+  ) {
+    return next();
+  }
+  return next(new ApiError(403, "Forbidden Access"));
+};
+
+const isCustomer = (req, _res, next) => {
+  if (req.user.role !== userRoleEnum.CUSTOMER) {
+    return next(new ApiError(403, "Forbidden: Only customers allowed"));
+  }
+  next();
+};
+
+export { isLoggedIn, isAdmin, isSeller, isAdminOrSeller, isCustomer };

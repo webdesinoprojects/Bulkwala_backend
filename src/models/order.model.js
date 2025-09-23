@@ -1,4 +1,11 @@
 import mongoose from "mongoose";
+import {
+  availablePaymentModes,
+  availableOrderStatus,
+  orderStatusEnum,
+  availablePaymentStatus,
+  paymentStatusEnum,
+} from "../utils/constant.js";
 
 const orderSchema = new mongoose.Schema(
   {
@@ -18,6 +25,7 @@ const orderSchema = new mongoose.Schema(
         priceAtPurchase: {
           type: Number,
           required: true,
+          min: 0,
         },
       },
     ],
@@ -26,11 +34,12 @@ const orderSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
       required: true,
+      index: true,
     },
 
     shippingAddress: {
-      name: { type: String, required: true },
-      phone: { type: String, required: true },
+      name: { type: String, required: true, trim: true },
+      phone: { type: String, required: true, trim: true },
       street: { type: String, required: true },
       city: { type: String, required: true },
       state: { type: String, required: true },
@@ -40,7 +49,7 @@ const orderSchema = new mongoose.Schema(
 
     paymentMode: {
       type: String,
-      enum: ["Cash on Delivery", "UPI", "Net Banking", "Card"],
+      enum: availablePaymentModes,
       required: true,
     },
 
@@ -49,43 +58,53 @@ const orderSchema = new mongoose.Schema(
       default: null,
     },
 
+    paymentStatus: {
+      type: String,
+      enum: availablePaymentStatus,
+      default: paymentStatusEnum.PENDING,
+    },
+
     itemsPrice: {
       type: Number,
       required: true,
+      min: 0,
     },
     shippingPrice: {
       type: Number,
       required: true,
+      min: 0,
+      default: 0,
     },
     taxPrice: {
       type: Number,
       required: true,
+      min: 0,
+      default: 0,
     },
     totalPrice: {
       type: Number,
       required: true,
+      min: 0,
     },
 
     status: {
       type: String,
-      enum: [
-        "Pending",
-        "Processing",
-        "Shipped",
-        "Delivered",
-        "Cancelled",
-        "Refunded",
-      ],
-      default: "Pending",
+      enum: availableOrderStatus,
+      default: orderStatusEnum.PENDING,
     },
 
     deliveredAt: {
+      type: Date,
+    },
+
+    cancelledAt: {
       type: Date,
     },
   },
   { timestamps: true }
 );
 
+// Auto-calc prices before saving
 orderSchema.pre("save", async function (next) {
   try {
     this.itemsPrice = this.products.reduce(
