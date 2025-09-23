@@ -17,6 +17,12 @@ const subcategorySchema = new mongoose.Schema(
       type: String,
       required: true,
     },
+    description: {
+      type: String,
+      trim: true,
+      optional: true,
+      default: "",
+    },
 
     // link to parent category
     category: {
