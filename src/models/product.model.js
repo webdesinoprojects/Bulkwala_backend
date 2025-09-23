@@ -8,6 +8,13 @@ const productSchema = new mongoose.Schema(
       trim: true,
     },
 
+    slug: {
+      type: String,
+      required: true,
+      unique: true,
+      lowercase: true,
+    },
+
     description: {
       type: String,
       required: true,
@@ -44,6 +51,12 @@ const productSchema = new mongoose.Schema(
       min: 0,
     },
 
+    category: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Category",
+      required: true,
+    },
+
     subcategory: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Subcategory",
@@ -68,6 +81,15 @@ const productSchema = new mongoose.Schema(
       },
     ],
 
+    // Soft delete
+    isDeleted: { type: Boolean, default: false },
+    deletedAt: { type: Date, default: null },
+    deletedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      default: null,
+    },
+
     isActive: {
       type: Boolean,
       default: true,
@@ -81,6 +103,11 @@ const productSchema = new mongoose.Schema(
 );
 
 productSchema.index({ title: "text", tags: 1 });
+
+productSchema.index(
+  { slug: 1 },
+  { unique: true, partialFilterExpression: { isDeleted: false } }
+);
 
 const Product = mongoose.model("Product", productSchema);
 

@@ -20,9 +20,11 @@ app.use(express.urlencoded({ extended: true }));
 import userRoutes from "./routes/user.routes.js";
 import categoryRoutes from "./routes/category.routes.js";
 import subcategoryRoutes from "./routes/subcategory.routes.js";
+import productRoutes from "./routes/product.routes.js";
 
 app.use("/api/users", userRoutes);
 app.use("/api/category", categoryRoutes);
 app.use("/api/subcategory", subcategoryRoutes);
+app.use("/api/product", productRoutes);
 
 export default app;

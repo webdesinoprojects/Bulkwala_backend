@@ -44,3 +44,5 @@ router
   );
 
 router.route("/:slug/restore").patch(isLoggedIn, isAdmin, restoreSubcategory);
+
+export default router;
