@@ -7,6 +7,7 @@ import {
   updateCategory,
   restoreCategory,
 } from "../controllers/category.controller.js";
+import { isAdmin, isLoggedIn } from "../middleware/auth.middleware.js";
 
 const router = express.Router();
 

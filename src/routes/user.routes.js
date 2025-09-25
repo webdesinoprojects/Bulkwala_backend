@@ -20,7 +20,7 @@ import {
   resetPasswordSchema,
   chnagePasswordSchema,
 } from "../validators/user.Schema.js";
-import isLoggedIn from "../middleware/auth.middlware.js";
+import { isLoggedIn } from "../middleware/auth.middleware.js";
 
 const router = express.Router();
 

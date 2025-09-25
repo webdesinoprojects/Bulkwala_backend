@@ -7,13 +7,18 @@ import {
   restoreSubcategory,
   updateSubcategory,
 } from "../controllers/subcategory.controller.js";
-import validateData from "../middleware/validate.js";
-import createSubCategorySchema, {
+import {validateData} from "../middleware/validate.js";
+
+import {
+  isLoggedIn,
+  isSeller,
+  isAdmin,
+} from "../middleware/auth.middleware.js";
+import {
+  createSubcategorySchema,
   deleteSubcategorySchema,
   updateSubcategorySchema,
 } from "../validators/subcategory.schema.js";
-
-import { isLoggedIn, isSeller, isAdmin } from "../middleware/auth.middlware.js";
 
 const router = express.Router();
 
@@ -24,12 +29,12 @@ router
   .post(
     isLoggedIn,
     isSeller,
-    validateData(createSubCategorySchema),
+    validateData(createSubcategorySchema),
     createSubCategory
   );
 
 router
-  .route(":/slug")
+  .route("/:slug")
   .delete(
     isLoggedIn,
     isSeller,

@@ -1,7 +1,7 @@
 import Category from "../models/category.model.js";
 import { ApiError } from "../utils/ApiError.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
-import ApiResponse from "../utils/ApiResponse.js";
+import {ApiResponse} from "../utils/ApiResponse.js";
 import { generateUniqueSlug } from "../utils/slug.js";
 import slugify from "slugify";
 import Subcategory from "../models/subcategory.model.js";

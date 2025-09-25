@@ -2,8 +2,9 @@ import Order from "../models/order.model.js";
 import Product from "../models/product.model.js";
 import { ApiError } from "../utils/ApiError.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
-import ApiResponse from "../utils/ApiResponse.js";
+import { ApiResponse } from "../utils/ApiResponse.js";
 import { orderStatusEnum } from "../utils/constant.js";
+
 
 const createOrder = asyncHandler(async (req, res) => {
   const { products, shippingAddress, paymentMode } = req.body;
@@ -70,6 +71,7 @@ const createOrder = asyncHandler(async (req, res) => {
     .json(new ApiResponse(201, order, "Order placed successfully"));
 });
 
+
 const getMyOrders = asyncHandler(async (req, res) => {
   const orders = await Order.find({ user: req.user._id }).populate(
     "products.product",
@@ -80,6 +82,7 @@ const getMyOrders = asyncHandler(async (req, res) => {
     .json(new ApiResponse(200, orders, "User orders fetched successfully"));
 });
 
+
 const getAllOrders = asyncHandler(async (_req, res) => {
   const orders = await Order.find()
     .populate("user", "name email")
@@ -89,8 +92,9 @@ const getAllOrders = asyncHandler(async (_req, res) => {
     .json(new ApiResponse(200, orders, "All orders fetched successfully"));
 });
 
+
 const getSingleOrder = asyncHandler(async (req, res) => {
-  const order = await Order.findById(req.params.id)
+  const order = await Order.findById(req.params.orderId)
     .populate("user", "name email")
     .populate("products.product", "title price images");
 
@@ -111,9 +115,10 @@ const getSingleOrder = asyncHandler(async (req, res) => {
     .json(new ApiResponse(200, order, "Order fetched successfully"));
 });
 
+
 const updateOrderStatus = asyncHandler(async (req, res) => {
   const { status } = req.body;
-  const order = await Order.findById(req.params.id);
+  const order = await Order.findById(req.params.orderId);
 
   if (!order) {
     throw new ApiError(404, "Order not found");
@@ -142,9 +147,44 @@ const updateOrderStatus = asyncHandler(async (req, res) => {
     .json(new ApiResponse(200, order, "Order status updated successfully"));
 });
 
+
+const cancelOrder = asyncHandler(async (req, res) => {
+  const order = await Order.findById(req.params.orderId);
+
+  if (!order) {
+    throw new ApiError(404, "Order not found");
+  }
+
+  // Only the owner can cancel their own order
+  if (order.user.toString() !== req.user._id.toString()) {
+    throw new ApiError(403, "Forbidden: Not allowed to cancel this order");
+  }
+
+  // Check if already delivered
+  if (order.status === orderStatusEnum.DELIVERED) {
+    throw new ApiError(400, "Cannot cancel a delivered order");
+  }
+
+  // Update status and restore stock
+  order.status = orderStatusEnum.CANCELLED;
+  order.cancelledAt = Date.now();
+
+  for (const item of order.products) {
+    await Product.findByIdAndUpdate(item.product, {
+      $inc: { stock: item.quantity },
+    });
+  }
+
+  await order.save();
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, order, "Order cancelled successfully"));
+});
+
 const updatePaymentStatus = asyncHandler(async (req, res) => {
   const { paymentStatus } = req.body;
-  const order = await Order.findById(req.params.id);
+  const order = await Order.findById(req.params.orderId);
 
   if (!order) {
     throw new ApiError(404, "Order not found");
@@ -165,5 +205,6 @@ export {
   getAllOrders,
   getSingleOrder,
   updateOrderStatus,
+  cancelOrder,
   updatePaymentStatus,
 };

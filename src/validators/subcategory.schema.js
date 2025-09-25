@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-export const createSubcategorySchema = z.object({
+const createSubcategorySchema = z.object({
   name: z
     .string({ required_error: "Name is required" })
     .trim()
@@ -26,7 +26,7 @@ export const createSubcategorySchema = z.object({
     .regex(/^[0-9a-fA-F]{24}$/, "Invalid category ObjectId"),
 });
 
-export const updateSubcategorySchema = z.object({
+const updateSubcategorySchema = z.object({
   name: z.string().trim().min(2).optional(),
   img_url: z.string().url().optional(),
   category: z
@@ -36,6 +36,13 @@ export const updateSubcategorySchema = z.object({
   // slug: optional — depends if you allow slug change
 });
 
-export const deleteSubcategorySchema = z.object({
+const deleteSubcategorySchema = z.object({
   slug: z.string().min(2, "Slug is required"),
 });
+
+
+export {
+  createSubcategorySchema,
+  updateSubcategorySchema,
+  deleteSubcategorySchema
+}

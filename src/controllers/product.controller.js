@@ -3,7 +3,7 @@ import Category from "../models/category.model.js";
 import Subcategory from "../models/subcategory.model.js";
 import { ApiError } from "../utils/ApiError.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
-import ApiResponse from "../utils/ApiResponse.js";
+import {ApiResponse} from "../utils/ApiResponse.js";
 
 const createProduct = asyncHandler(async (req, res) => {
   const {

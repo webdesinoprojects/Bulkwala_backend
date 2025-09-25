@@ -1,5 +1,5 @@
 import express from "express";
-import { validateData } from "../middlewares/validateData.js";
+import { validateData } from "../middleware/validate.js";
 import {
   createOrderSchema,
   updateOrderStatusSchema,
@@ -11,12 +11,13 @@ import {
   getSingleOrder,
   updateOrderStatus,
   cancelOrder,
+  updatePaymentStatus,
 } from "../controllers/order.controller.js";
 import {
   isLoggedIn,
   isAdminOrSeller,
   isCustomer,
-} from "../middlewares/auth.middleware.js";
+} from "../middleware/auth.middleware.js";
 
 const router = express.Router();
 
@@ -40,5 +41,9 @@ router
     validateData(updateOrderStatusSchema),
     updateOrderStatus
   );
+
+router
+  .route("/:orderId/payment-status")
+  .patch(isLoggedIn, isAdminOrSeller, updatePaymentStatus);
 
 export default router;

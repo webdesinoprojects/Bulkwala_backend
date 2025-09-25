@@ -12,8 +12,8 @@ import {
   isLoggedIn,
   isSeller,
   isAdmin,
-} from "../middlewares/auth.middleware.js";
-import { validateData } from "../middlewares/validateData.js";
+} from "../middleware/auth.middleware.js";
+import { validateData } from "../middleware/validate.js";
 import {
   createProductSchema,
   updateProductSchema,
