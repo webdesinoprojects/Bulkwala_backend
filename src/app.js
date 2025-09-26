@@ -1,19 +1,21 @@
 import express from "express";
 import cors from "cors";
 import cookieParser from "cookie-parser";
+import morgan from "morgan";
 
 const app = express();
 
 const frontendURL = process.env.FRONTEND_URL;
 
-app.use(express.json());
 app.use(
   cors({
     origin: frontendURL,
     credentials: true,
   })
 );
+app.use(morgan("dev"));
 app.use(cookieParser());
+app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // imports

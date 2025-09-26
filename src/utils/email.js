@@ -1,11 +1,11 @@
 import { Resend } from "resend";
 
-const resend = new Resend(process.env.RESEND_API_KEY);
-
 export async function sendVerificationEmail(toEmail, verificationToken) {
   try {
+    const resend = new Resend(process.env.RESEND_API_KEY);
+
     const { data, error } = await resend.emails.send({
-      from: "no-reply@bulkwala.com",
+      from: "test@resend.dev",
       to: [toEmail],
       subject: "Verify Your Account",
       html: `
@@ -32,10 +32,12 @@ export async function sendVerificationEmail(toEmail, verificationToken) {
 // New function for sending reset password link
 export async function sendResetPasswordEmail(toEmail, userId, resetToken) {
   try {
+    const resend = new Resend(process.env.RESEND_API_KEY);
+
     const resetLink = `${process.env.FRONTEND_URL}/reset-password/${userId}/${resetToken}`;
 
     const { data, error } = await resend.emails.send({
-      from: "no-reply@bulkwala.com",
+      from: "test@resend.dev",
       to: [toEmail],
       subject: "Password Reset Request",
       html: `

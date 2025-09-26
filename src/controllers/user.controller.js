@@ -1,11 +1,13 @@
 import User from "../models/user.model.js";
 import { ApiError } from "../utils/ApiError.js";
+import { ApiResponse } from "../utils/ApiResponse.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { cookieOptions } from "../utils/constant.js";
 import {
   sendResetPasswordEmail,
   sendVerificationEmail,
 } from "../utils/email.js";
+import ms from "ms";
 
 const registerUser = asyncHandler(async (req, res) => {
   const { name, email, password, phone } = req.body;
@@ -19,15 +21,15 @@ const registerUser = asyncHandler(async (req, res) => {
   const verificationToken = Math.floor(
     100000 + Math.random() * 900000
   ).toString();
+  const expiresIn = ms(process.env.VERIFICATION_TOKEN_EXPIRES_IN);
+
   const user = await User.create({
     name,
     email,
     password,
     phone,
     verificationToken,
-    verificationTokenExpiresAt: new Date(
-      Date.now() + process.env.VERIFICATION_TOKEN_EXPIRES_IN
-    ),
+    verificationTokenExpiresAt: new Date(Date.now() + expiresIn),
     isVerified: false,
   });
 
