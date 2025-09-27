@@ -18,7 +18,7 @@ import {
   loginuserSchema,
   forgetPasswordSchema,
   resetPasswordSchema,
-  chnagePasswordSchema,
+  changePasswordSchema,
 } from "../validators/user.Schema.js";
 import { isLoggedIn } from "../middleware/auth.middleware.js";
 
@@ -36,7 +36,7 @@ router
   .post(validateData(forgetPasswordSchema), forgetPassword);
 router
   .route("/change-password")
-  .post(validateData(chnagePasswordSchema), isLoggedIn, changePassword);
+  .post(validateData(changePasswordSchema), isLoggedIn, changePassword);
 router
   .route("/reset-password/:userid/:token")
   .post(validateData(resetPasswordSchema), resetPassword);
