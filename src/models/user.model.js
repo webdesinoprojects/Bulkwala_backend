@@ -27,7 +27,6 @@ const userSchema = new Schema(
       type: String,
       required: true,
       minlength: 6,
-      select: false,
     },
 
     role: {
@@ -85,16 +84,16 @@ userSchema.methods.generateJWT = function () {
       email: this.email,
       role: this.role,
     },
-    ACCESS_TOKEN_SECRET,
-    { expiresIn: ACCESS_TOKEN_EXPIRES_IN }
+    process.env.ACCESS_TOKEN_SECRET,
+    { expiresIn: process.env.ACCESS_TOKEN_EXPIRES_IN }
   );
 
   const refreshToken = jwt.sign(
     {
       _id: this._id,
     },
-    REFRESH_TOKEN_SECRET,
-    { expiresIn: REFRESH_TOKEN_EXPIRES_IN }
+    process.env.REFRESH_TOKEN_SECRET,
+    { expiresIn: process.env.REFRESH_TOKEN_EXPIRES_IN }
   );
   return { accessToken, refreshToken };
 };

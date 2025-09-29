@@ -43,12 +43,15 @@ const registerUser = asyncHandler(async (req, res) => {
 const loginUser = asyncHandler(async (req, res) => {
   const { email, password } = req.body;
 
+  console.log(password);
+
   const user = await User.findOne({ email });
   if (!user) {
     throw new ApiError(400, "User not found");
   }
-  const isPasswordCorrect = await user.isPasswordCorrect(password);
-  if (!isPasswordCorrect) {
+  const isPassCorrect = await user.isPasswordCorrect(password);
+  console.log(isPassCorrect);
+  if (!isPassCorrect) {
     throw new ApiError(400, "Invalid password");
   }
 
@@ -97,7 +100,7 @@ const getuserProfile = asyncHandler(async (req, res) => {
 });
 
 const verifyUser = asyncHandler(async (req, res) => {
-  const { userid } = req.parmas;
+  const { userid } = req.params;
   const { token } = req.body;
 
   const user = await User.findById(userid);
