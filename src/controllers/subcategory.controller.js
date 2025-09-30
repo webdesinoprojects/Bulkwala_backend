@@ -3,9 +3,17 @@ import Subcategory from "../models/subcategory.model.js";
 import { ApiError } from "../utils/ApiError.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
+import { generateUniqueSlug } from "../utils/slug.js";
+import slugify from "slugify";
+import imagekit from "../utils/imagekit.js";
+import { v4 as uuidv4 } from "uuid";
 
 const createSubCategory = asyncHandler(async (req, res) => {
-  const { name, slug, img_url, category } = req.body;
+  const { name, slug: incomingSlug, category } = req.body;
+
+  const slug = incomingSlug
+    ? slugify(incomingSlug, { lower: true, strict: true })
+    : await generateUniqueSlug(Subcategory, name);
 
   const isSlugExists = await Subcategory.findOne({ slug, isDeleted: false });
   if (isSlugExists) {
@@ -20,6 +28,24 @@ const createSubCategory = asyncHandler(async (req, res) => {
     throw new ApiError(404, "Parent category not found");
   }
 
+  // handle image upload
+  let img_url = null;
+  if (req.file) {
+    const base64 = req.file.buffer.toString("base64");
+    const fileData = `data:${req.file.mimetype};base64,${base64}`;
+    const filename = `${Date.now()}_${uuidv4()}_${req.file.originalname}`;
+
+    const result = await imagekit.upload({
+      file: fileData,
+      fileName: filename,
+      folder: "subcategories",
+    });
+
+    img_url = result.url;
+  } else {
+    throw new ApiError(400, "Subcategory image is required");
+  }
+
   const subcategory = await Subcategory.create({
     name,
     slug,
@@ -27,7 +53,7 @@ const createSubCategory = asyncHandler(async (req, res) => {
     category,
   });
 
-  // (Optional)
+  // maintain parent reference
   parentCategory.subcategories.push(subcategory._id);
   await parentCategory.save();
 
@@ -79,7 +105,7 @@ const getSingleSubcategory = asyncHandler(async (req, res) => {
 
 const updateSubcategory = asyncHandler(async (req, res) => {
   const { slug } = req.params;
-  const { name, img_url, category } = req.body;
+  const { name, category } = req.body;
 
   const subcategory = await Subcategory.findOne({ slug, isDeleted: false });
   if (!subcategory) {
@@ -88,7 +114,6 @@ const updateSubcategory = asyncHandler(async (req, res) => {
 
   // Update fields
   if (name) subcategory.name = name;
-  if (img_url) subcategory.img_url = img_url;
 
   // If category is changed, check it exists
   if (category) {
@@ -100,6 +125,21 @@ const updateSubcategory = asyncHandler(async (req, res) => {
       throw new ApiError(404, "New parent category not found");
     }
     subcategory.category = category;
+  }
+
+  // handle new image upload if provided
+  if (req.file) {
+    const base64 = req.file.buffer.toString("base64");
+    const fileData = `data:${req.file.mimetype};base64,${base64}`;
+    const filename = `${Date.now()}_${uuidv4()}_${req.file.originalname}`;
+
+    const result = await imagekit.upload({
+      file: fileData,
+      fileName: filename,
+      folder: "subcategories",
+    });
+
+    subcategory.img_url = result.url;
   }
 
   await subcategory.save();

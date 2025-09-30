@@ -1,13 +1,15 @@
 import Category from "../models/category.model.js";
 import { ApiError } from "../utils/ApiError.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
-import {ApiResponse} from "../utils/ApiResponse.js";
+import { ApiResponse } from "../utils/ApiResponse.js";
 import { generateUniqueSlug } from "../utils/slug.js";
 import slugify from "slugify";
 import Subcategory from "../models/subcategory.model.js";
+import imagekit from "../utils/imagekit.js";
+import { v4 as uuidv4 } from "uuid";
 
 const createCategory = asyncHandler(async (req, res) => {
-  const { name, slug: incomingSlug, img_url } = req.body;
+  const { name, slug: incomingSlug } = req.body;
 
   const slug = incomingSlug
     ? slugify(incomingSlug, { lower: true, strict: true })
@@ -15,6 +17,24 @@ const createCategory = asyncHandler(async (req, res) => {
 
   const exists = await Category.findOne({ slug, isDeleted: false });
   if (exists) throw new ApiError(400, "Slug already exists");
+
+  // Handle image upload
+  let img_url = null;
+  if (req.file) {
+    const base64 = req.file.buffer.toString("base64");
+    const fileData = `data:${req.file.mimetype};base64,${base64}`;
+    const filename = `${Date.now()}_${uuidv4()}_${req.file.originalname}`;
+
+    const result = await imagekit.upload({
+      file: fileData,
+      fileName: filename,
+      folder: "categories",
+    });
+
+    img_url = result.url;
+  } else {
+    throw new ApiError(400, "Category image is required");
+  }
 
   const category = await Category.create({
     name,
@@ -77,17 +97,31 @@ const deleteCategory = asyncHandler(async (req, res) => {
 
 const updateCategory = asyncHandler(async (req, res) => {
   const { slug } = req.params;
-  const { name, img_url } = req.body;
+  const { name } = req.body;
 
   const category = await Category.findOne({ slug, isDeleted: false });
   if (!category) throw new ApiError(404, "Category not found");
 
   if (name && name !== category.name) {
-    // generate unique slug excluding this category's id
     category.slug = await generateUniqueSlug(Category, name, category._id);
   }
   if (img_url) category.img_url = img_url;
   category.name = name || category.name;
+
+  // Handle new image upload if provided
+  if (req.file) {
+    const base64 = req.file.buffer.toString("base64");
+    const fileData = `data:${req.file.mimetype};base64,${base64}`;
+    const filename = `${Date.now()}_${uuidv4()}_${req.file.originalname}`;
+
+    const result = await imagekit.upload({
+      file: fileData,
+      fileName: filename,
+      folder: "categories",
+    });
+
+    category.img_url = result.url;
+  }
 
   await category.save();
   return res

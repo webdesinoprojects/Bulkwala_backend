@@ -3,14 +3,15 @@ import Category from "../models/category.model.js";
 import Subcategory from "../models/subcategory.model.js";
 import { ApiError } from "../utils/ApiError.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
-import {ApiResponse} from "../utils/ApiResponse.js";
+import { ApiResponse } from "../utils/ApiResponse.js";
+import imagekit from "../utils/imagekit.js";
+import { v4 as uuidv4 } from "uuid";
 
 const createProduct = asyncHandler(async (req, res) => {
   const {
     title,
     slug,
     description,
-    images,
     videos,
     price,
     discountPrice,
@@ -37,11 +38,32 @@ const createProduct = asyncHandler(async (req, res) => {
   });
   if (!childSubcategory) throw new ApiError(404, "Subcategory not found");
 
+  // handle image uploads if files exist
+  let imageUrls = [];
+  if (req.files && req.files.length > 0) {
+    const uploads = await Promise.all(
+      req.files.map(async (file) => {
+        const base64 = file.buffer.toString("base64");
+        const fileData = `data:${file.mimetype};base64,${base64}`;
+        const filename = `${Date.now()}_${uuidv4()}_${file.originalname}`;
+
+        const result = await imagekit.upload({
+          file: fileData,
+          fileName: filename,
+          folder: "products",
+        });
+
+        return result.url;
+      })
+    );
+    imageUrls = uploads;
+  }
+
   const product = await Product.create({
     title,
     slug,
     description,
-    images,
+    images: imageUrls,
     videos,
     price,
     discountPrice,

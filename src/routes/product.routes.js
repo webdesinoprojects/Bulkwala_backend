@@ -8,6 +8,7 @@ import {
   restoreProduct,
 } from "../controllers/product.controller.js";
 
+import upload from "../middlewares/multer.middleware.js";
 import {
   isLoggedIn,
   isSeller,
@@ -27,7 +28,13 @@ router.route("/:slug").get(getSingleProduct);
 
 router
   .route("/")
-  .post(isLoggedIn, isSeller, validateData(createProductSchema), createProduct);
+  .post(
+    isLoggedIn,
+    isSeller,
+    upload.array("images", 6),
+    validateData(createProductSchema),
+    createProduct
+  );
 
 router
   .route("/:slug")

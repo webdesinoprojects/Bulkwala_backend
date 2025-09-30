@@ -16,7 +16,7 @@ export const uploadSingleImage = async (req, res, next) => {
     const result = await imagekit.upload({
       file,
       fileName: filename,
-      folder: "products", // optional: set folder in ImageKit
+      folder: "", // optional: set folder in ImageKit
     });
 
     return res
@@ -46,7 +46,7 @@ export const uploadMultipleImages = async (req, res, next) => {
         const result = await imagekit.upload({
           file: fileData,
           fileName: filename,
-          folder: "products",
+          folder: "",
         });
 
         return {

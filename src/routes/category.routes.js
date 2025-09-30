@@ -8,15 +8,19 @@ import {
   restoreCategory,
 } from "../controllers/category.controller.js";
 import { isAdmin, isLoggedIn } from "../middleware/auth.middleware.js";
+import upload from "../middlewares/multer.middleware.js";
 
 const router = express.Router();
 
-router.route("/").post(isLoggedIn, isAdmin, createCategory).get(getCategories);
+router
+  .route("/")
+  .post(isLoggedIn, isAdmin, upload.single("image"), createCategory)
+  .get(getCategories);
 
 router
   .route("/:slug")
   .get(getSingleCategory)
-  .put(isLoggedIn, isAdmin, updateCategory)
+  .put(isLoggedIn, isAdmin, upload.single("image"), updateCategory)
   .delete(isLoggedIn, isAdmin, deleteCategory);
 
 router.route("/:slug/restore").post(isLoggedIn, isAdmin, restoreCategory);

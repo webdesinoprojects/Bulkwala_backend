@@ -7,11 +7,13 @@ import {
   restoreSubcategory,
   updateSubcategory,
 } from "../controllers/subcategory.controller.js";
-import {validateData} from "../middleware/validate.js";
+import { validateData } from "../middleware/validate.js";
+import upload from "../middlewares/multer.middleware.js";
 
 import {
   isLoggedIn,
   isSeller,
+  isAdminOrSeller,
   isAdmin,
 } from "../middleware/auth.middleware.js";
 import {
@@ -28,7 +30,8 @@ router
   .route("/")
   .post(
     isLoggedIn,
-    isSeller,
+    isAdminOrSeller,
+    upload.single("image"),
     validateData(createSubcategorySchema),
     createSubCategory
   );
@@ -37,13 +40,14 @@ router
   .route("/:slug")
   .delete(
     isLoggedIn,
-    isSeller,
+    isAdminOrSeller,
     validateData(deleteSubcategorySchema),
     deleteSubcategory
   )
   .put(
     isLoggedIn,
-    isSeller,
+    isAdminOrSeller,
+    upload.single("image"),
     validateData(updateSubcategorySchema),
     updateSubcategory
   );
