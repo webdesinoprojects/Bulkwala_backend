@@ -13,6 +13,7 @@ import {
   isLoggedIn,
   isSeller,
   isAdmin,
+  isAdminOrSeller,
 } from "../middleware/auth.middleware.js";
 import { validateData } from "../middleware/validate.js";
 import {
@@ -30,7 +31,7 @@ router
   .route("/")
   .post(
     isLoggedIn,
-    isSeller,
+    isAdminOrSeller,
     upload.array("images", 6),
     validateData(createProductSchema),
     createProduct

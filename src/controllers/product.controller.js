@@ -6,11 +6,13 @@ import { asyncHandler } from "../utils/asyncHandler.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import imagekit from "../utils/imagekit.js";
 import { v4 as uuidv4 } from "uuid";
+import { generateUniqueSlug } from "../utils/slug.js";
+import slugify from "slugify";
 
 const createProduct = asyncHandler(async (req, res) => {
   const {
     title,
-    slug,
+    slug: incomingSlug,
     description,
     videos,
     price,
@@ -22,6 +24,10 @@ const createProduct = asyncHandler(async (req, res) => {
     isActive,
     isFeatured,
   } = req.body;
+
+  const slug = incomingSlug
+    ? slugify(incomingSlug, { lower: true, strict: true })
+    : await generateUniqueSlug(Product, title);
 
   const existingSlug = await Product.findOne({ slug, isDeleted: false });
   if (existingSlug) throw new ApiError(400, "Product slug already exists");

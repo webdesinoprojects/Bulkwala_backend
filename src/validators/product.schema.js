@@ -6,35 +6,23 @@ export const createProductSchema = z.object({
     .trim()
     .min(2, "Title must be at least 2 characters"),
 
-  slug: z
-    .string({ required_error: "Slug is required" })
-    .trim()
-    .toLowerCase()
-    .regex(
-      /^[a-z0-9-]+$/,
-      "Slug must contain only lowercase letters, numbers, and hyphens"
-    ),
+  slug: z.string().trim().toLowerCase().optional(),
 
   description: z
     .string({ required_error: "Description is required" })
     .trim()
     .min(10, "Description must be at least 10 characters"),
-
-  images: z
-    .array(z.string().url("Invalid image URL"))
-    .min(1, "At least one image is required"),
+  images: z.any().transform((val) => {
+    if (!val) return [];
+    if (Array.isArray(val)) return val.map((f) => f.path || f);
+    return [val.path || val];
+  }),
 
   videos: z.array(z.string().url("Invalid video URL")).optional(),
-
-  price: z
-    .number({ required_error: "Price is required" })
-    .min(0, "Price must be greater than or equal to 0"),
+  price: z.union([z.string(), z.number()]).transform((val) => Number(val)),
 
   discountPrice: z.number().min(0, "Discount price must be >= 0").optional(),
-
-  stock: z
-    .number({ required_error: "Stock is required" })
-    .min(0, "Stock must be greater than or equal to 0"),
+  stock: z.union([z.string(), z.number()]).transform((val) => Number(val)),
 
   category: z
     .string({ required_error: "Category ID is required" })
