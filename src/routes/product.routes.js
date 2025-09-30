@@ -8,7 +8,7 @@ import {
   restoreProduct,
 } from "../controllers/product.controller.js";
 
-import upload from "../middlewares/multer.middleware.js";
+import upload from "../middleware/multer.middleware.js";
 import {
   isLoggedIn,
   isSeller,

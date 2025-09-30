@@ -8,7 +8,7 @@ import {
   restoreCategory,
 } from "../controllers/category.controller.js";
 import { isAdmin, isLoggedIn } from "../middleware/auth.middleware.js";
-import upload from "../middlewares/multer.middleware.js";
+import upload from "../middleware/multer.middleware.js";
 
 const router = express.Router();
 

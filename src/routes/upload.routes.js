@@ -1,10 +1,10 @@
 import express from "express";
-import upload from "../middlewares/multer.middleware.js";
+import upload from "../middleware/multer.middleware.js";
 import {
   uploadSingleImage,
   uploadMultipleImages,
 } from "../controllers/upload.controller.js";
-import { isLoggedIn, isAdminOrSeller } from "../middlewares/auth.middleware.js";
+import { isLoggedIn, isAdminOrSeller } from "../middleware/auth.middleware.js";
 
 const router = express.Router();
 

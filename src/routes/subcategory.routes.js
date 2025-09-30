@@ -8,7 +8,7 @@ import {
   updateSubcategory,
 } from "../controllers/subcategory.controller.js";
 import { validateData } from "../middleware/validate.js";
-import upload from "../middlewares/multer.middleware.js";
+import upload from "../middleware/multer.middleware.js";
 
 import {
   isLoggedIn,
