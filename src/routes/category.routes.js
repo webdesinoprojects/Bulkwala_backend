@@ -22,8 +22,8 @@ router
   .post(
     isLoggedIn,
     isAdmin,
-    validateData(createCategorySchema),
     upload.single("image"),
+    validateData(createCategorySchema),
     createCategory
   )
   .get(getCategories);
@@ -34,8 +34,8 @@ router
   .put(
     isLoggedIn,
     isAdmin,
-    validateData(updateCategorySchema),
     upload.single("image"),
+    validateData(updateCategorySchema),
     updateCategory
   )
   .delete(isLoggedIn, isAdmin, deleteCategory);

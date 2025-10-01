@@ -100,8 +100,8 @@ const productSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-productSchema.index({ title: "text", tags: 1 });
-
+productSchema.index({ title: "text" });
+productSchema.index({ tags: 1 });
 productSchema.index(
   { slug: 1 },
   { unique: true, partialFilterExpression: { isDeleted: false } }

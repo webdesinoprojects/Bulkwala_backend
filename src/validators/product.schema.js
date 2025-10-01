@@ -1,17 +1,19 @@
 import { z } from "zod";
 
 export const createProductSchema = z.object({
-  title: z
-    .string({ required_error: "Title is required" })
-    .trim()
-    .min(2, "Title must be at least 2 characters"),
+  title: z.string({ required_error: "Title is required" }).trim().min(2),
 
-  slug: z.string().trim().toLowerCase().optional(),
+  slug: z
+    .string()
+    .trim()
+    .toLowerCase()
+    .optional()
+    .transform((val) => (val === "" ? undefined : val)),
 
   description: z
     .string({ required_error: "Description is required" })
     .trim()
-    .min(10, "Description must be at least 10 characters"),
+    .min(5),
   images: z.any().transform((val) => {
     if (!val) return [];
     if (Array.isArray(val)) return val.map((f) => f.path || f);
@@ -32,10 +34,17 @@ export const createProductSchema = z.object({
     .string({ required_error: "Subcategory ID is required" })
     .regex(/^[0-9a-fA-F]{24}$/, "Invalid subcategory ObjectId"),
 
-  tags: z.array(z.string().trim().toLowerCase()).optional(),
+  tags: z
+    .union([z.string(), z.array(z.string())])
+    .transform((val) => (Array.isArray(val) ? val : val ? [val] : []))
+    .optional(),
+  isActive: z
+    .union([z.string(), z.boolean()])
+    .transform((val) => val === "true" || val === true),
 
-  isActive: z.boolean().optional(),
-  isFeatured: z.boolean().optional(),
+  isFeatured: z
+    .union([z.string(), z.boolean()])
+    .transform((val) => val === "true" || val === true),
 });
 
 export const updateProductSchema = z.object({

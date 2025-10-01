@@ -8,9 +8,7 @@ const createSubcategorySchema = z.object({
   slug: z
     .string()
     .trim()
-    .transform((val) => val.toLowerCase())
     .optional()
-    .or(z.literal(""))
     .transform((val) => (val === "" ? undefined : val)),
 
   description: z.string().trim().optional(),
