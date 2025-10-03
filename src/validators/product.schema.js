@@ -47,14 +47,36 @@ export const createProductSchema = z.object({
     .union([z.string(), z.boolean()])
     .transform((val) => val === "true" || val === true),
 
-  sku: z.string().trim().min(1, "SKU is required").optional(),
+  sku: z
+    .string()
+    .trim()
+    .optional()
+    .transform((val) => (val === "" ? undefined : val)),
+
+  genericName: z
+    .string()
+    .trim()
+    .optional()
+    .transform((val) => (val === "" ? undefined : val)),
+
+  manufacturerName: z
+    .string()
+    .trim()
+    .optional()
+    .transform((val) => (val === "" ? undefined : val)),
+
   color: z
     .union([z.string(), z.array(z.string())])
-    .transform((val) => (Array.isArray(val) ? val : val ? [val] : []))
-    .optional(),
-  genericName: z.string().trim().optional(),
+    .optional()
+    .transform((val) => {
+      if (!val) return [];
+      if (Array.isArray(val)) {
+        return val.filter((c) => c && c.trim() !== "");
+      }
+      return val.trim() === "" ? [] : [val.trim()];
+    }),
+
   countryOfOrigin: z.enum(["India", "China"]).default("India"),
-  manufacturerName: z.string().trim().optional(),
 });
 
 export const updateProductSchema = z.object({
@@ -82,11 +104,37 @@ export const updateProductSchema = z.object({
   tags: z.array(z.string().trim().toLowerCase()).optional(),
   isActive: z.boolean().optional(),
   isFeatured: z.boolean().optional(),
-  sku: z.string().trim().optional(),
-  color: z.array(z.string().trim()).optional(),
-  genericName: z.string().trim().optional(),
+  sku: z
+    .string()
+    .trim()
+    .optional()
+    .transform((val) => (val === "" ? undefined : val)),
   countryOfOrigin: z.enum(["India", "China"]).optional(),
-  manufacturerName: z.string().trim().optional(),
+  genericName: z
+    .string()
+    .trim()
+    .optional()
+    .transform((val) => (val === "" ? undefined : val)),
+
+  manufacturerName: z
+    .string()
+    .trim()
+    .optional()
+    .transform((val) => (val === "" ? undefined : val)),
+
+  color: z
+    .union([z.string(), z.array(z.string())])
+    .optional()
+    .transform((val) => {
+      if (!val) return []; // no color provided
+      if (Array.isArray(val)) {
+        return val.filter((c) => c && c.trim() !== ""); // clean array
+      }
+      if (typeof val === "string") {
+        return val.trim() === "" ? [] : [val.trim()];
+      }
+      return [];
+    }),
 });
 
 export const filterProductSchema = z.object({
