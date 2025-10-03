@@ -18,12 +18,13 @@ const createCategory = asyncHandler(async (req, res) => {
   const exists = await Category.findOne({ slug, isDeleted: false });
   if (exists) throw new ApiError(400, "Slug already exists");
 
-  // Handle image upload
+  // Handle main category image
   let img_url = null;
-  if (req.file) {
-    const base64 = req.file.buffer.toString("base64");
-    const fileData = `data:${req.file.mimetype};base64,${base64}`;
-    const filename = `${Date.now()}_${uuidv4()}_${req.file.originalname}`;
+  if (req.files && req.files.image && req.files.image[0]) {
+    const file = req.files.image[0];
+    const base64 = file.buffer.toString("base64");
+    const fileData = `data:${file.mimetype};base64,${base64}`;
+    const filename = `${Date.now()}_${uuidv4()}_${file.originalname}`;
 
     const result = await imagekit.upload({
       file: fileData,
@@ -36,10 +37,32 @@ const createCategory = asyncHandler(async (req, res) => {
     throw new ApiError(400, "Category image is required");
   }
 
+  // Handle banner images (optional)
+  let bannerUrls = [];
+  if (req.files && req.files.banner && req.files.banner.length > 0) {
+    const uploads = await Promise.all(
+      req.files.banner.map(async (file) => {
+        const base64 = file.buffer.toString("base64");
+        const fileData = `data:${file.mimetype};base64,${base64}`;
+        const filename = `${Date.now()}_${uuidv4()}_${file.originalname}`;
+
+        const result = await imagekit.upload({
+          file: fileData,
+          fileName: filename,
+          folder: "categories/banners",
+        });
+
+        return result.url;
+      })
+    );
+    bannerUrls = uploads;
+  }
+
   const category = await Category.create({
     name,
     slug,
     img_url,
+    banner: bannerUrls,
   });
 
   return res
@@ -105,14 +128,14 @@ const updateCategory = asyncHandler(async (req, res) => {
   if (name && name !== category.name) {
     category.slug = await generateUniqueSlug(Category, name, category._id);
   }
-  if (img_url) category.img_url = img_url;
   category.name = name || category.name;
 
-  // Handle new image upload if provided
-  if (req.file) {
-    const base64 = req.file.buffer.toString("base64");
-    const fileData = `data:${req.file.mimetype};base64,${base64}`;
-    const filename = `${Date.now()}_${uuidv4()}_${req.file.originalname}`;
+  // Replace category image if new one uploaded
+  if (req.files && req.files.image && req.files.image[0]) {
+    const file = req.files.image[0];
+    const base64 = file.buffer.toString("base64");
+    const fileData = `data:${file.mimetype};base64,${base64}`;
+    const filename = `${Date.now()}_${uuidv4()}_${file.originalname}`;
 
     const result = await imagekit.upload({
       file: fileData,
@@ -121,6 +144,26 @@ const updateCategory = asyncHandler(async (req, res) => {
     });
 
     category.img_url = result.url;
+  }
+
+  // Replace banner images if new ones uploaded
+  if (req.files && req.files.banner && req.files.banner.length > 0) {
+    const uploads = await Promise.all(
+      req.files.banner.map(async (file) => {
+        const base64 = file.buffer.toString("base64");
+        const fileData = `data:${file.mimetype};base64,${base64}`;
+        const filename = `${Date.now()}_${uuidv4()}_${file.originalname}`;
+
+        const result = await imagekit.upload({
+          file: fileData,
+          fileName: filename,
+          folder: "categories/banners",
+        });
+
+        return result.url;
+      })
+    );
+    category.banner = uploads; // replace existing banners
   }
 
   await category.save();

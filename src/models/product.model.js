@@ -79,6 +79,33 @@ const productSchema = new mongoose.Schema(
       },
     ],
 
+    sku: {
+      type: String,
+      unique: true,
+      sparse: true, // allows null values without violating unique
+      trim: true,
+    },
+
+    color: [
+      {
+        type: String,
+        trim: true,
+      },
+    ],
+
+    genericName: {
+      type: String,
+      trim: true,
+    },
+
+    countryOfOrigin: {
+      type: String,
+      enum: ["India", "China"],
+      default: "India",
+    },
+
+    manufacturerName: { type: String, trim: true },
+
     // Soft delete
     isDeleted: { type: Boolean, default: false },
     deletedAt: { type: Date, default: null },

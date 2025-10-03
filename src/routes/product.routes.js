@@ -27,19 +27,26 @@ router.route("/").get(getProducts);
 
 router.route("/:slug").get(getSingleProduct);
 
-router
-  .route("/")
-  .post(
-    isLoggedIn,
-    isAdminOrSeller,
-    upload.array("images", 6),
-    validateData(createProductSchema),
-    createProduct
-  );
-
-router
-  .route("/:slug")
-  .put(isLoggedIn, isSeller, validateData(updateProductSchema), updateProduct);
+router.route("/").post(
+  isLoggedIn,
+  isAdminOrSeller,
+  upload.fields([
+    { name: "images", maxCount: 6 },
+    { name: "video", maxCount: 1 },
+  ]),
+  validateData(createProductSchema),
+  createProduct
+);
+router.route("/:slug").put(
+  isLoggedIn,
+  isAdminOrSeller,
+  upload.fields([
+    { name: "images", maxCount: 6 },
+    { name: "video", maxCount: 1 },
+  ]),
+  validateData(updateProductSchema),
+  updateProduct
+);
 
 router.route("/:slug").delete(isLoggedIn, isSeller, deleteProduct);
 

@@ -22,7 +22,10 @@ router
   .post(
     isLoggedIn,
     isAdmin,
-    upload.single("image"),
+    upload.fields([
+      { name: "image", maxCount: 1 },   // main category image
+      { name: "banner", maxCount: 3 },  // allow up to 3 banners
+    ]),
     validateData(createCategorySchema),
     createCategory
   )
@@ -30,11 +33,13 @@ router
 
 router
   .route("/:slug")
-  .get(getSingleCategory)
   .put(
     isLoggedIn,
     isAdmin,
-    upload.single("image"),
+    upload.fields([
+      { name: "image", maxCount: 1 },
+      { name: "banner", maxCount: 3 },
+    ]),
     validateData(updateCategorySchema),
     updateCategory
   )

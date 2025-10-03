@@ -20,7 +20,8 @@ export const createProductSchema = z.object({
     return [val.path || val];
   }),
 
-  videos: z.array(z.string().url("Invalid video URL")).optional(),
+  video: z.any().optional(), // 🆕 single video file
+
   price: z.union([z.string(), z.number()]).transform((val) => Number(val)),
 
   discountPrice: z.number().min(0, "Discount price must be >= 0").optional(),
@@ -45,6 +46,15 @@ export const createProductSchema = z.object({
   isFeatured: z
     .union([z.string(), z.boolean()])
     .transform((val) => val === "true" || val === true),
+
+  sku: z.string().trim().min(1, "SKU is required").optional(),
+  color: z
+    .union([z.string(), z.array(z.string())])
+    .transform((val) => (Array.isArray(val) ? val : val ? [val] : []))
+    .optional(),
+  genericName: z.string().trim().optional(),
+  countryOfOrigin: z.enum(["India", "China"]).default("India"),
+  manufacturerName: z.string().trim().optional(),
 });
 
 export const updateProductSchema = z.object({
@@ -72,6 +82,11 @@ export const updateProductSchema = z.object({
   tags: z.array(z.string().trim().toLowerCase()).optional(),
   isActive: z.boolean().optional(),
   isFeatured: z.boolean().optional(),
+  sku: z.string().trim().optional(),
+  color: z.array(z.string().trim()).optional(),
+  genericName: z.string().trim().optional(),
+  countryOfOrigin: z.enum(["India", "China"]).optional(),
+  manufacturerName: z.string().trim().optional(),
 });
 
 export const filterProductSchema = z.object({
@@ -88,4 +103,7 @@ export const filterProductSchema = z.object({
   search: z.string().trim().optional(),
   page: z.number().min(1).optional(),
   limit: z.number().min(1).optional(),
+  sku: z.string().trim().optional(),
+  color: z.string().trim().optional(),
+  countryOfOrigin: z.enum(["India", "China"]).optional(),
 });

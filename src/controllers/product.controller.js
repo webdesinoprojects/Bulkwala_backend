@@ -14,7 +14,6 @@ const createProduct = asyncHandler(async (req, res) => {
     title,
     slug: incomingSlug,
     description,
-    videos,
     price,
     discountPrice,
     stock,
@@ -23,6 +22,11 @@ const createProduct = asyncHandler(async (req, res) => {
     tags,
     isActive,
     isFeatured,
+    sku,
+    color,
+    genericName,
+    countryOfOrigin,
+    manufacturerName,
   } = req.body;
 
   const slug = incomingSlug
@@ -44,25 +48,53 @@ const createProduct = asyncHandler(async (req, res) => {
   });
   if (!childSubcategory) throw new ApiError(404, "Subcategory not found");
 
-  // handle image uploads if files exist
+  //  Separate image & video files
   let imageUrls = [];
-  if (req.files && req.files.length > 0) {
-    const uploads = await Promise.all(
-      req.files.map(async (file) => {
-        const base64 = file.buffer.toString("base64");
-        const fileData = `data:${file.mimetype};base64,${base64}`;
-        const filename = `${Date.now()}_${uuidv4()}_${file.originalname}`;
+  let videoUrl = null;
 
-        const result = await imagekit.upload({
-          file: fileData,
-          fileName: filename,
-          folder: "products",
-        });
+  if (req.files) {
+    // handle images
+    if (req.files.images && req.files.images.length > 0) {
+      const imgUploads = await Promise.all(
+        req.files.images.map(async (file) => {
+          const base64 = file.buffer.toString("base64");
+          const fileData = `data:${file.mimetype};base64,${base64}`;
+          const filename = `${Date.now()}_${uuidv4()}_${file.originalname}`;
 
-        return result.url;
-      })
-    );
-    imageUrls = uploads;
+          const result = await imagekit.upload({
+            file: fileData,
+            fileName: filename,
+            folder: "products/images",
+          });
+
+          return result.url;
+        })
+      );
+      imageUrls = imgUploads;
+    }
+
+    // handle single video
+    if (req.files.video && req.files.video[0]) {
+      const videoFile = req.files.video[0];
+
+      // size check: 150MB max
+      const MAX_VIDEO_SIZE = 150 * 1024 * 1024; // 150 MB
+      if (videoFile.size > MAX_VIDEO_SIZE) {
+        throw new ApiError(400, "Video size must not exceed 150 MB");
+      }
+
+      const base64 = videoFile.buffer.toString("base64");
+      const fileData = `data:${videoFile.mimetype};base64,${base64}`;
+      const filename = `${Date.now()}_${uuidv4()}_${videoFile.originalname}`;
+
+      const result = await imagekit.upload({
+        file: fileData,
+        fileName: filename,
+        folder: "products/videos",
+      });
+
+      videoUrl = result.url;
+    }
   }
 
   const product = await Product.create({
@@ -70,7 +102,7 @@ const createProduct = asyncHandler(async (req, res) => {
     slug,
     description,
     images: imageUrls,
-    videos,
+    videos: videoUrl ? [videoUrl] : [], // store single video URL in array
     price,
     discountPrice,
     stock,
@@ -79,6 +111,11 @@ const createProduct = asyncHandler(async (req, res) => {
     tags,
     isActive,
     isFeatured,
+    sku,
+    color,
+    genericName,
+    countryOfOrigin,
+    manufacturerName,
   });
 
   return res
@@ -156,6 +193,11 @@ const updateProduct = asyncHandler(async (req, res) => {
     if (slugExists) throw new ApiError(400, "Slug already exists");
   }
 
+  if (updates.sku && updates.sku !== product.sku) {
+    const skuExists = await Product.findOne({ sku: updates.sku });
+    if (skuExists) throw new ApiError(400, "SKU already exists");
+  }
+
   if (updates.category) {
     const categoryExists = await Category.findOne({
       _id: updates.category,
@@ -172,7 +214,50 @@ const updateProduct = asyncHandler(async (req, res) => {
     if (!subcategoryExists) throw new ApiError(404, "Subcategory not found");
   }
 
+  //  Handle images replacement
+  if (req.files && req.files.images && req.files.images.length > 0) {
+    const imgUploads = await Promise.all(
+      req.files.images.map(async (file) => {
+        const base64 = file.buffer.toString("base64");
+        const fileData = `data:${file.mimetype};base64,${base64}`;
+        const filename = `${Date.now()}_${uuidv4()}_${file.originalname}`;
+
+        const result = await imagekit.upload({
+          file: fileData,
+          fileName: filename,
+          folder: "products/images",
+        });
+
+        return result.url;
+      })
+    );
+    updates.images = imgUploads; // replace old images
+  }
+
+  //  Handle video replacement
+  if (req.files && req.files.video && req.files.video[0]) {
+    const videoFile = req.files.video[0];
+
+    const MAX_VIDEO_SIZE = 150 * 1024 * 1024; // 150 MB
+    if (videoFile.size > MAX_VIDEO_SIZE) {
+      throw new ApiError(400, "Video size must not exceed 150 MB");
+    }
+
+    const base64 = videoFile.buffer.toString("base64");
+    const fileData = `data:${videoFile.mimetype};base64,${base64}`;
+    const filename = `${Date.now()}_${uuidv4()}_${videoFile.originalname}`;
+
+    const result = await imagekit.upload({
+      file: fileData,
+      fileName: filename,
+      folder: "products/videos",
+    });
+
+    updates.videos = [result.url]; // replace old video
+  }
+
   Object.assign(product, updates); //for overrites the existing fields.
+
   await product.save();
 
   return res
