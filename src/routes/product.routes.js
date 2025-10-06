@@ -48,8 +48,10 @@ router.route("/:slug").put(
   updateProduct
 );
 
-router.route("/:slug").delete(isLoggedIn, isSeller, deleteProduct);
+router.route("/:slug").delete(isLoggedIn, isAdminOrSeller, deleteProduct);
 
-router.route("/:slug/restore").patch(isLoggedIn, isAdmin, restoreProduct);
+router
+  .route("/:slug/restore")
+  .patch(isLoggedIn, isAdminOrSeller, restoreProduct);
 
 export default router;
