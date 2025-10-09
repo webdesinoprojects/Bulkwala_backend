@@ -26,12 +26,10 @@ const updateSubcategorySchema = z.object({
     .optional(),
 });
 
-const deleteSubcategorySchema = z.object({
-  slug: z.string().min(2, "Slug is required"),
-});
+
 
 export {
   createSubcategorySchema,
   updateSubcategorySchema,
-  deleteSubcategorySchema,
+
 };

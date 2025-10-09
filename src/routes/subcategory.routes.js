@@ -18,7 +18,6 @@ import {
 } from "../middleware/auth.middleware.js";
 import {
   createSubcategorySchema,
-  deleteSubcategorySchema,
   updateSubcategorySchema,
 } from "../validators/subcategory.schema.js";
 
@@ -41,7 +40,6 @@ router
   .delete(
     isLoggedIn,
     isAdminOrSeller,
-    validateData(deleteSubcategorySchema),
     deleteSubcategory
   )
   .put(
