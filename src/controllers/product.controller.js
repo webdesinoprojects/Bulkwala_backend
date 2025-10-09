@@ -180,90 +180,106 @@ const getProducts = asyncHandler(async (req, res) => {
 
 const updateProduct = asyncHandler(async (req, res) => {
   const { slug } = req.params;
-  const updates = req.body;
+  const {
+    title,
+    price,
+    stock,
+    description,
+    category,
+    subcategory,
+    slug: newSlug,
+    sku: newSku,
+    imagesToRemove = [],
+    existingImages = [],
+  } = req.body;
 
   const product = await Product.findOne({ slug, isDeleted: false });
   if (!product) throw new ApiError(404, "Product not found");
 
-  if (updates.slug && updates.slug !== product.slug) {
-    const slugExists = await Product.findOne({
-      slug: updates.slug,
-      isDeleted: false,
-    });
+  // ---------- SLUG & SKU Checks ----------
+  if (newSlug && newSlug !== product.slug) {
+    const slugExists = await Product.findOne({ slug: newSlug, isDeleted: false });
     if (slugExists) throw new ApiError(400, "Slug already exists");
+    product.slug = newSlug;
   }
 
-  if (updates.sku && updates.sku !== product.sku) {
-    const skuExists = await Product.findOne({ sku: updates.sku });
+  if (newSku && newSku !== product.sku) {
+    const skuExists = await Product.findOne({ sku: newSku });
     if (skuExists) throw new ApiError(400, "SKU already exists");
+    product.sku = newSku;
   }
 
-  if (updates.category) {
-    const categoryExists = await Category.findOne({
-      _id: updates.category,
-      isDeleted: false,
-    });
+  // ---------- Category / Subcategory validation ----------
+  if (category) {
+    const categoryExists = await Category.findOne({ _id: category, isDeleted: false });
     if (!categoryExists) throw new ApiError(404, "Category not found");
+    product.category = category;
   }
 
-  if (updates.subcategory) {
-    const subcategoryExists = await Subcategory.findOne({
-      _id: updates.subcategory,
-      isDeleted: false,
-    });
+  if (subcategory) {
+    const subcategoryExists = await Subcategory.findOne({ _id: subcategory, isDeleted: false });
     if (!subcategoryExists) throw new ApiError(404, "Subcategory not found");
+    product.subcategory = subcategory;
   }
 
-  //  Handle images replacement
+  // ---------- Update basic fields ----------
+  if (title) product.title = title;
+  if (price) product.price = price;
+  if (stock) product.stock = stock;
+  if (description) product.description = description;
+
+  // ---------- Handle images ----------
+  // Remove images marked for deletion
+  if (imagesToRemove.length > 0) {
+    product.images = product.images.filter(img => !imagesToRemove.includes(img));
+  }
+
+  // Keep existing images from frontend
+  if (existingImages.length > 0) {
+    existingImages.forEach(img => {
+      if (!product.images.includes(img)) product.images.push(img);
+    });
+  }
+
+  // Upload new images
   if (req.files && req.files.images && req.files.images.length > 0) {
-    const imgUploads = await Promise.all(
+    const uploadedImages = await Promise.all(
       req.files.images.map(async (file) => {
         const base64 = file.buffer.toString("base64");
         const fileData = `data:${file.mimetype};base64,${base64}`;
         const filename = `${Date.now()}_${uuidv4()}_${file.originalname}`;
-
         const result = await imagekit.upload({
           file: fileData,
           fileName: filename,
           folder: "products/images",
         });
-
         return result.url;
       })
     );
-    updates.images = imgUploads; // replace old images
+    product.images.push(...uploadedImages);
   }
 
-  //  Handle video replacement
+  // ---------- Handle video ----------
   if (req.files && req.files.video && req.files.video[0]) {
     const videoFile = req.files.video[0];
-
     const MAX_VIDEO_SIZE = 150 * 1024 * 1024; // 150 MB
-    if (videoFile.size > MAX_VIDEO_SIZE) {
-      throw new ApiError(400, "Video size must not exceed 150 MB");
-    }
+    if (videoFile.size > MAX_VIDEO_SIZE) throw new ApiError(400, "Video size must not exceed 150 MB");
 
     const base64 = videoFile.buffer.toString("base64");
     const fileData = `data:${videoFile.mimetype};base64,${base64}`;
     const filename = `${Date.now()}_${uuidv4()}_${videoFile.originalname}`;
-
     const result = await imagekit.upload({
       file: fileData,
       fileName: filename,
       folder: "products/videos",
     });
-
-    updates.videos = [result.url]; // replace old video
+    product.videos = [result.url];
   }
 
-  Object.assign(product, updates); //for overrites the existing fields.
-
   await product.save();
-
-  return res
-    .status(200)
-    .json(new ApiResponse(200, product, "Product updated successfully"));
+  return res.status(200).json(new ApiResponse(200, product, "Product updated successfully"));
 });
+
 
 const deleteProduct = asyncHandler(async (req, res) => {
   const { slug } = req.params;
