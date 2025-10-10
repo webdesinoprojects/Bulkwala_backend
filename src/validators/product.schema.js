@@ -24,7 +24,10 @@ export const createProductSchema = z.object({
 
   price: z.union([z.string(), z.number()]).transform((val) => Number(val)),
 
-  discountPrice: z.number().min(0, "Discount price must be >= 0").optional(),
+  discountPrice: z
+    .union([z.string(), z.number()])
+    .transform((val) => Number(val))
+    .optional(),
   stock: z.union([z.string(), z.number()]).transform((val) => Number(val)),
 
   category: z
@@ -90,9 +93,30 @@ export const updateProductSchema = z.object({
   description: z.string().trim().min(10).optional(),
   images: z.array(z.string().url()).optional(),
   videos: z.array(z.string().url()).optional(),
-  price: z.number().min(0).optional(),
-  discountPrice: z.number().min(0).optional(),
-  stock: z.number().min(0).optional(),
+
+  imagesToRemove: z
+    .union([z.string().url(), z.array(z.string().url())])
+    .optional()
+    .transform((val) => (typeof val === "string" ? [val] : val || [])),
+
+  existingImages: z
+    .union([z.string().url(), z.array(z.string().url())])
+    .optional()
+    .transform((val) => (typeof val === "string" ? [val] : val || [])),
+
+  discountPrice: z
+    .union([z.string(), z.number()])
+    .transform((val) => Number(val))
+    .optional(),
+  price: z
+    .union([z.string(), z.number()])
+    .transform((val) => Number(val))
+    .optional(),
+  stock: z
+    .union([z.string(), z.number()])
+    .transform((val) => Number(val))
+    .optional(),
+
   category: z
     .string()
     .regex(/^[0-9a-fA-F]{24}$/)

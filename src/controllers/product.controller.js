@@ -180,74 +180,71 @@ const getProducts = asyncHandler(async (req, res) => {
 
 const updateProduct = asyncHandler(async (req, res) => {
   const { slug } = req.params;
-  const {
-    title,
-    price,
-    stock,
-    description,
-    category,
-    subcategory,
-    slug: newSlug,
-    sku: newSku,
-    imagesToRemove = [],
-    existingImages = [],
-  } = req.body;
+  const updates = req.body;
 
   const product = await Product.findOne({ slug, isDeleted: false });
   if (!product) throw new ApiError(404, "Product not found");
 
-  // ---------- SLUG & SKU Checks ----------
-  if (newSlug && newSlug !== product.slug) {
-    const slugExists = await Product.findOne({ slug: newSlug, isDeleted: false });
-    if (slugExists) throw new ApiError(400, "Slug already exists");
-    product.slug = newSlug;
-  }
-
-  if (newSku && newSku !== product.sku) {
-    const skuExists = await Product.findOne({ sku: newSku });
-    if (skuExists) throw new ApiError(400, "SKU already exists");
-    product.sku = newSku;
-  }
-
-  // ---------- Category / Subcategory validation ----------
-  if (category) {
-    const categoryExists = await Category.findOne({ _id: category, isDeleted: false });
-    if (!categoryExists) throw new ApiError(404, "Category not found");
-    product.category = category;
-  }
-
-  if (subcategory) {
-    const subcategoryExists = await Subcategory.findOne({ _id: subcategory, isDeleted: false });
-    if (!subcategoryExists) throw new ApiError(404, "Subcategory not found");
-    product.subcategory = subcategory;
-  }
-
-  // ---------- Update basic fields ----------
-  if (title) product.title = title;
-  if (price) product.price = price;
-  if (stock) product.stock = stock;
-  if (description) product.description = description;
-
-  // ---------- Handle images ----------
-  // Remove images marked for deletion
-  if (imagesToRemove.length > 0) {
-    product.images = product.images.filter(img => !imagesToRemove.includes(img));
-  }
-
-  // Keep existing images from frontend
-  if (existingImages.length > 0) {
-    existingImages.forEach(img => {
-      if (!product.images.includes(img)) product.images.push(img);
+  //  Slug check
+  if (updates.slug && updates.slug !== product.slug) {
+    const slugExists = await Product.findOne({
+      slug: updates.slug,
+      isDeleted: false,
     });
+    if (slugExists) throw new ApiError(400, "Slug already exists");
+    product.slug = updates.slug;
   }
 
-  // Upload new images
-  if (req.files && req.files.images && req.files.images.length > 0) {
-    const uploadedImages = await Promise.all(
+  //  SKU check
+  if (updates.sku && updates.sku !== product.sku) {
+    const skuExists = await Product.findOne({ sku: updates.sku });
+    if (skuExists) throw new ApiError(400, "SKU already exists");
+    product.sku = updates.sku;
+  }
+
+  // Category check
+  if (updates.category) {
+    const categoryExists = await Category.findOne({
+      _id: updates.category,
+      isDeleted: false,
+    });
+    if (!categoryExists) throw new ApiError(404, "Category not found");
+    product.category = updates.category;
+  }
+
+  // Subcategory check
+  if (updates.subcategory) {
+    const subcategoryExists = await Subcategory.findOne({
+      _id: updates.subcategory,
+      isDeleted: false,
+    });
+    if (!subcategoryExists) throw new ApiError(404, "Subcategory not found");
+    product.subcategory = updates.subcategory;
+  }
+
+  // Handle images
+  let finalImages = product.images || [];
+
+  // Remove selected images
+  if (updates.imagesToRemove && Array.isArray(updates.imagesToRemove)) {
+    finalImages = finalImages.filter(
+      (img) => !updates.imagesToRemove.includes(img)
+    );
+  }
+
+  // Keep explicitly passed existing images (if frontend sends them)
+  if (updates.existingImages && Array.isArray(updates.existingImages)) {
+    finalImages = updates.existingImages;
+  }
+
+  // Upload new images if any
+  if (req.files?.images && req.files.images.length > 0) {
+    const newImageUploads = await Promise.all(
       req.files.images.map(async (file) => {
         const base64 = file.buffer.toString("base64");
         const fileData = `data:${file.mimetype};base64,${base64}`;
         const filename = `${Date.now()}_${uuidv4()}_${file.originalname}`;
+
         const result = await imagekit.upload({
           file: fileData,
           fileName: filename,
@@ -256,30 +253,59 @@ const updateProduct = asyncHandler(async (req, res) => {
         return result.url;
       })
     );
-    product.images.push(...uploadedImages);
+    finalImages = [...finalImages, ...newImageUploads];
   }
 
-  // ---------- Handle video ----------
-  if (req.files && req.files.video && req.files.video[0]) {
+  product.images = finalImages;
+
+  // 🔹 Handle video (replace if new uploaded)
+  if (req.files?.video && req.files.video[0]) {
     const videoFile = req.files.video[0];
-    const MAX_VIDEO_SIZE = 150 * 1024 * 1024; // 150 MB
-    if (videoFile.size > MAX_VIDEO_SIZE) throw new ApiError(400, "Video size must not exceed 150 MB");
+
+    const MAX_VIDEO_SIZE = 150 * 1024 * 1024;
+    if (videoFile.size > MAX_VIDEO_SIZE) {
+      throw new ApiError(400, "Video size must not exceed 150 MB");
+    }
 
     const base64 = videoFile.buffer.toString("base64");
     const fileData = `data:${videoFile.mimetype};base64,${base64}`;
     const filename = `${Date.now()}_${uuidv4()}_${videoFile.originalname}`;
+
     const result = await imagekit.upload({
       file: fileData,
       fileName: filename,
       folder: "products/videos",
     });
+
     product.videos = [result.url];
   }
 
-  await product.save();
-  return res.status(200).json(new ApiResponse(200, product, "Product updated successfully"));
-});
+  // 🔹 Update other fields
+  const allowedFields = [
+    "title",
+    "description",
+    "price",
+    "discountPrice",
+    "stock",
+    "tags",
+    "isActive",
+    "isFeatured",
+    "color",
+    "genericName",
+    "countryOfOrigin",
+    "manufacturerName",
+  ];
 
+  allowedFields.forEach((field) => {
+    if (updates[field] !== undefined) product[field] = updates[field];
+  });
+
+  await product.save();
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, product, "Product updated successfully"));
+});
 
 const deleteProduct = asyncHandler(async (req, res) => {
   const { slug } = req.params;
