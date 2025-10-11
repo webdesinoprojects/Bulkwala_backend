@@ -11,6 +11,10 @@ import {
   changePassword,
   logoutUser,
   applyForSeller,
+  approveSeller,
+  getPendingSellers,
+  rejectSeller,
+  getAllUsers,
 } from "../controllers/user.controller.js";
 import { validateData } from "../middleware/validate.js";
 import {
@@ -22,7 +26,7 @@ import {
   changePasswordSchema,
   sellerApplicationSchema,
 } from "../validators/user.Schema.js";
-import { isLoggedIn } from "../middleware/auth.middleware.js";
+import { isAdmin, isLoggedIn } from "../middleware/auth.middleware.js";
 
 const router = express.Router();
 
@@ -47,5 +51,13 @@ router.route("/logout").post(isLoggedIn, logoutUser);
 router
   .route("/apply-seller")
   .post(isLoggedIn, validateData(sellerApplicationSchema), applyForSeller);
+
+router.route("/sellers/pending").get(isLoggedIn, isAdmin, getPendingSellers);
+router
+  .route("/sellers/approve/:userid")
+  .put(isLoggedIn, isAdmin, approveSeller);
+
+router.route("/sellers/reject/:userid").put(isLoggedIn, isAdmin, rejectSeller);
+router.route("/").get(isLoggedIn, isAdmin, getAllUsers);
 
 export default router;

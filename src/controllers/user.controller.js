@@ -9,6 +9,17 @@ import {
 } from "../utils/email.js";
 import ms from "ms";
 
+// Get all users (Admin only)
+const getAllUsers = asyncHandler(async (req, res) => {
+  const users = await User.find()
+    .select("-password -resetPasswordToken -refreshToken")
+    .sort({ createdAt: -1 });
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, users, "All users fetched successfully"));
+});
+
 const registerUser = asyncHandler(async (req, res) => {
   const { name, email, password, phone } = req.body;
 
@@ -132,7 +143,7 @@ const verifyUser = asyncHandler(async (req, res) => {
     );
 });
 
-const forgetPassword = asyncHandler(async (req, res) => {
+const forgetPassword = asyncHandler(async (req, _res) => {
   const { email } = req.body;
   const user = await User.findOne({ email });
   if (!user) {
@@ -181,7 +192,7 @@ const resetPassword = asyncHandler(async (req, res) => {
     .json(new ApiResponse(200, user, "Password Reset Successfully"));
 });
 
-const changePassword = asyncHandler(async (req, res) => {
+const changePassword = asyncHandler(async (req, _res) => {
   const { email } = req.body;
   const user = await User.findById(email);
   if (!user) {
@@ -232,7 +243,7 @@ const refreshUserToken = asyncHandler(async (req, res) => {
     .json(new ApiResponse(200, null, "Access token refreshed successfully"));
 });
 
-const logoutUser = asyncHandler(async (req, res) => {
+const logoutUser = asyncHandler(async (_req, res) => {
   // const accessToken = req.cookies.accessToken;
   // const refreshToken = req.cookies.refreshToken;
 
@@ -258,6 +269,20 @@ const applyForSeller = asyncHandler(async (req, res) => {
   const user = await User.findById(userId);
   if (!user) throw new ApiError(404, "User not found");
 
+  if (user.sellerDetails?.approved) {
+    throw new ApiError(400, "You are already an approved seller");
+  }
+
+  // Prevent multiple applications
+  if (
+    user.sellerDetails &&
+    user.sellerDetails.businessName &&
+    !user.sellerDetails.approved
+  ) {
+    throw new ApiError(400, "Your seller application is already under review");
+  }
+
+  // Save application details
   user.sellerDetails = {
     businessName,
     gstNumber,
@@ -265,19 +290,72 @@ const applyForSeller = asyncHandler(async (req, res) => {
     bankName,
     accountNumber,
     ifsc,
+    approved: false,
   };
-  user.role = "seller";
-  user.sellerDetails.approved = false; // pending admin review
+
   await user.save();
 
   return res
     .status(200)
     .json(
-      new ApiResponse(200, user, "Seller application submitted successfully")
+      new ApiResponse(
+        200,
+        user,
+        "Seller application submitted successfully and pending admin approval"
+      )
     );
 });
 
+// Get all pending seller applications
+const getPendingSellers = asyncHandler(async (_req, res) => {
+  const pending = await User.find({
+    "sellerDetails.approved": false,
+    "sellerDetails.businessName": { $exists: true, $ne: "" },
+    role: "customer",
+  }).select("-password -refreshToken -resetPasswordToken");
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, pending, "Pending seller applications fetched"));
+});
+
+//  Approve seller
+const approveSeller = asyncHandler(async (req, res) => {
+  const { userid } = req.params;
+  const user = await User.findById(userid);
+
+  if (!user) throw new ApiError(404, "User not found");
+
+  if (!user.sellerDetails || !user.sellerDetails.businessName) {
+    throw new ApiError(400, "This user has not applied as a seller");
+  }
+
+  user.role = "seller";
+  user.sellerDetails.approved = true;
+  await user.save();
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, user, "Seller approved successfully"));
+});
+
+const rejectSeller = asyncHandler(async (req, res) => {
+  const { userid } = req.params;
+  const user = await User.findById(userid);
+
+  if (!user) throw new ApiError(404, "User not found");
+
+  user.sellerDetails = {}; // clear application
+  user.role = "customer";
+  await user.save();
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, user, "Seller application rejected"));
+});
+
 export {
+  getAllUsers,
   registerUser,
   loginUser,
   updateUser,
@@ -289,4 +367,7 @@ export {
   changePassword,
   logoutUser,
   applyForSeller,
+  getPendingSellers,
+  approveSeller,
+  rejectSeller,
 };
