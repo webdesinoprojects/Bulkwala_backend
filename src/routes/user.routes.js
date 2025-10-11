@@ -10,6 +10,7 @@ import {
   refreshUserToken,
   changePassword,
   logoutUser,
+  applyForSeller,
 } from "../controllers/user.controller.js";
 import { validateData } from "../middleware/validate.js";
 import {
@@ -19,6 +20,7 @@ import {
   forgetPasswordSchema,
   resetPasswordSchema,
   changePasswordSchema,
+  sellerApplicationSchema,
 } from "../validators/user.Schema.js";
 import { isLoggedIn } from "../middleware/auth.middleware.js";
 
@@ -42,5 +44,8 @@ router
   .post(validateData(resetPasswordSchema), resetPassword);
 router.route("/refresh-token").post(refreshUserToken);
 router.route("/logout").post(isLoggedIn, logoutUser);
+router
+  .route("/apply-seller")
+  .post(isLoggedIn, validateData(sellerApplicationSchema), applyForSeller);
 
 export default router;

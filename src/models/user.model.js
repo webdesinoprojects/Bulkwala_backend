@@ -62,7 +62,18 @@ const userSchema = new Schema(
     resetPasswordExpiresAt: Date,
     verificationToken: String,
     verificationTokenExpiresAt: Date,
+
+    sellerDetails: {
+      businessName: String,
+      gstNumber: String,
+      pickupAddress: String,
+      bankName: String,
+      accountNumber: String,
+      ifsc: String,
+      approved: { type: Boolean, default: false },
+    },
   },
+
   { timestamps: true }
 );
 

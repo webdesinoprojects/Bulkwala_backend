@@ -244,6 +244,39 @@ const logoutUser = asyncHandler(async (req, res) => {
     .json(new ApiResponse(200, null, "User logged out successfully"));
 });
 
+const applyForSeller = asyncHandler(async (req, res) => {
+  const userId = req.user._id;
+  const {
+    businessName,
+    gstNumber,
+    pickupAddress,
+    bankName,
+    accountNumber,
+    ifsc,
+  } = req.body;
+
+  const user = await User.findById(userId);
+  if (!user) throw new ApiError(404, "User not found");
+
+  user.sellerDetails = {
+    businessName,
+    gstNumber,
+    pickupAddress,
+    bankName,
+    accountNumber,
+    ifsc,
+  };
+  user.role = "seller";
+  user.sellerDetails.approved = false; // pending admin review
+  await user.save();
+
+  return res
+    .status(200)
+    .json(
+      new ApiResponse(200, user, "Seller application submitted successfully")
+    );
+});
+
 export {
   registerUser,
   loginUser,
@@ -255,4 +288,5 @@ export {
   refreshUserToken,
   changePassword,
   logoutUser,
+  applyForSeller,
 };
