@@ -155,7 +155,16 @@ const getProducts = asyncHandler(async (req, res) => {
   if (minPrice || maxPrice) filter.price = {};
   if (minPrice) filter.price.$gte = Number(minPrice);
   if (maxPrice) filter.price.$lte = Number(maxPrice);
-  if (search) filter.$text = { $search: search };
+
+  if (search && search.trim() !== "") {
+    const regex = new RegExp(search.trim(), "i"); // case-insensitive partial match
+    filter.$or = [
+      { title: regex },
+      { description: regex },
+      { tags: regex },
+      { slug: regex },
+    ];
+  }
 
   const skip = (Number(page) - 1) * Number(limit);
 
@@ -163,7 +172,8 @@ const getProducts = asyncHandler(async (req, res) => {
     .populate("category", "name slug")
     .populate("subcategory", "name slug")
     .skip(skip)
-    .limit(Number(limit));
+    .limit(Number(limit))
+    .lean();
 
   const total = await Product.countDocuments(filter);
 
