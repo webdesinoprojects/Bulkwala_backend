@@ -37,11 +37,7 @@ router
 
 router
   .route("/:slug")
-  .delete(
-    isLoggedIn,
-    isAdminOrSeller,
-    deleteSubcategory
-  )
+  .delete(isLoggedIn, isAdminOrSeller, deleteSubcategory)
   .put(
     isLoggedIn,
     isAdminOrSeller,

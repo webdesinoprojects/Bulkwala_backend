@@ -23,8 +23,8 @@ router
     isLoggedIn,
     isAdmin,
     upload.fields([
-      { name: "image", maxCount: 1 },   // main category image
-      { name: "banner", maxCount: 3 },  // allow up to 3 banners
+      { name: "image", maxCount: 1 }, // main category image
+      { name: "banner", maxCount: 3 }, // allow up to 3 banners
     ]),
     validateData(createCategorySchema),
     createCategory

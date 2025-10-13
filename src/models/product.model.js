@@ -106,6 +106,12 @@ const productSchema = new mongoose.Schema(
 
     manufacturerName: { type: String, trim: true },
 
+    createdBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
+    },
+
     // Soft delete
     isDeleted: { type: Boolean, default: false },
     deletedAt: { type: Date, default: null },

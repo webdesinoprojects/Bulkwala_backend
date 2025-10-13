@@ -116,6 +116,7 @@ const createProduct = asyncHandler(async (req, res) => {
     genericName,
     countryOfOrigin,
     manufacturerName,
+    createdBy: req.user._id,
   });
 
   return res
@@ -146,12 +147,14 @@ const getProducts = asyncHandler(async (req, res) => {
     search,
     page = 1,
     limit = 10,
+    sellerId,
   } = req.query;
 
   const filter = { isDeleted: false };
 
   if (category) filter.category = category;
   if (subcategory) filter.subcategory = subcategory;
+  if (sellerId) filter.createdBy = sellerId;
   if (minPrice || maxPrice) filter.price = {};
   if (minPrice) filter.price.$gte = Number(minPrice);
   if (maxPrice) filter.price.$lte = Number(maxPrice);
@@ -194,6 +197,17 @@ const updateProduct = asyncHandler(async (req, res) => {
 
   const product = await Product.findOne({ slug, isDeleted: false });
   if (!product) throw new ApiError(404, "Product not found");
+
+  //  Ownership check
+  if (
+    req.user.role !== "admin" &&
+    product.createdBy.toString() !== req.user._id.toString()
+  ) {
+    throw new ApiError(
+      403,
+      "Unauthorized: You can only update your own products"
+    );
+  }
 
   //  Slug check
   if (updates.slug && updates.slug !== product.slug) {
@@ -322,6 +336,17 @@ const deleteProduct = asyncHandler(async (req, res) => {
 
   const product = await Product.findOne({ slug, isDeleted: false });
   if (!product) throw new ApiError(404, "Product not found or already deleted");
+
+  //  Ownership check
+  if (
+    req.user.role !== "admin" &&
+    product.createdBy.toString() !== req.user._id.toString()
+  ) {
+    throw new ApiError(
+      403,
+      "Unauthorized: You can only delete your own products"
+    );
+  }
 
   product.isDeleted = true;
   product.deletedAt = new Date();

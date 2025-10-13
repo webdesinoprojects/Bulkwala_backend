@@ -11,7 +11,6 @@ import {
 import upload from "../middleware/multer.middleware.js";
 import {
   isLoggedIn,
-  isSeller,
   isAdmin,
   isAdminOrSeller,
 } from "../middleware/auth.middleware.js";
@@ -50,8 +49,6 @@ router.route("/:slug").put(
 
 router.route("/:slug").delete(isLoggedIn, isAdminOrSeller, deleteProduct);
 
-router
-  .route("/:slug/restore")
-  .patch(isLoggedIn, isAdminOrSeller, restoreProduct);
+router.route("/:slug/restore").patch(isLoggedIn, isAdmin, restoreProduct);
 
 export default router;
