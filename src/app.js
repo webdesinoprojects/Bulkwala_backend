@@ -24,6 +24,7 @@ import categoryRoutes from "./routes/category.routes.js";
 import subcategoryRoutes from "./routes/subcategory.routes.js";
 import productRoutes from "./routes/product.routes.js";
 import orderRoutes from "./routes/order.routes.js";
+import cartRoutes from "./routes/cart.routes.js";
 import uploadRoutes from "./routes/upload.routes.js";
 import queryRoutes from "./routes/query.routes.js";
 import { globalErrorHandler } from "./middleware/globalError.middleware.js";
@@ -35,6 +36,7 @@ app.use("/api/category", categoryRoutes);
 app.use("/api/subcategory", subcategoryRoutes);
 app.use("/api/product", productRoutes);
 app.use("/api/order", orderRoutes);
+app.use("/api/cart", cartRoutes);
 app.use("/api/uploads", uploadRoutes);
 app.use("/api/query", queryRoutes);
 
