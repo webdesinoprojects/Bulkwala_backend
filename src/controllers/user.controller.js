@@ -3,6 +3,7 @@ import { ApiError } from "../utils/ApiError.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { cookieOptions } from "../utils/constant.js";
+import crypto from "crypto";
 import {
   sendResetPasswordEmail,
   sendVerificationEmail,
@@ -192,9 +193,9 @@ const resetPassword = asyncHandler(async (req, res) => {
     .json(new ApiResponse(200, user, "Password Reset Successfully"));
 });
 
-const changePassword = asyncHandler(async (req, _res) => {
+const changePassword = asyncHandler(async (req, res) => {
   const { email } = req.body;
-  const user = await User.findById(email);
+  const user = await User.findOne({ email });
   if (!user) {
     throw new ApiError(404, "User not found");
   }
@@ -211,7 +212,19 @@ const changePassword = asyncHandler(async (req, _res) => {
   await user.save({ validateBeforeSave: false });
 
   // Send the password reset email
-  await sendResetPasswordEmail(user.email, user._id, resetPasswordToken);
+  const emailSent = await sendResetPasswordEmail(
+    user.email,
+    user._id,
+    resetPasswordToken
+  );
+
+  if (!emailSent) {
+    throw new ApiError(500, "Failed to send reset password email");
+  }
+
+  return res
+    .status(200)
+    .json({ success: true, message: "Password reset link sent successfully" });
 });
 
 const refreshUserToken = asyncHandler(async (req, res) => {
