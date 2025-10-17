@@ -42,7 +42,7 @@ const getCart = asyncHandler(async (req, res) => {
 
   const cart = await Cart.findOne({ user: userId }).populate(
     "items.product",
-    "name price image_url"
+    "title price images description"
   );
 
   if (!cart || cart.items.length === 0)
