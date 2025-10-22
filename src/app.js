@@ -27,6 +27,7 @@ import orderRoutes from "./routes/order.routes.js";
 import cartRoutes from "./routes/cart.routes.js";
 import uploadRoutes from "./routes/upload.routes.js";
 import queryRoutes from "./routes/query.routes.js";
+import paymentRoutes from "./routes/payment.routes.js";
 import { globalErrorHandler } from "./middleware/globalError.middleware.js";
 
 // routes
@@ -39,6 +40,7 @@ app.use("/api/order", orderRoutes);
 app.use("/api/cart", cartRoutes);
 app.use("/api/uploads", uploadRoutes);
 app.use("/api/query", queryRoutes);
+app.use("/api/payment", paymentRoutes);
 
 // Global Error Handler - always last middleware
 app.use(globalErrorHandler);
