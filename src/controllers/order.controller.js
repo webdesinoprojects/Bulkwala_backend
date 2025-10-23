@@ -3,8 +3,10 @@ import Product from "../models/product.model.js";
 import { ApiError } from "../utils/ApiError.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
-import { orderStatusEnum } from "../utils/constant.js";
-
+import { orderStatusEnum, paymentStatusEnum } from "../utils/constant.js";
+import Payment from "../models/payment.model.js";
+import razorpayInstance from "../utils/razorpay.js";
+import crypto from "crypto";
 
 const createOrder = asyncHandler(async (req, res) => {
   const { products, shippingAddress, paymentMode } = req.body;
@@ -38,39 +40,92 @@ const createOrder = asyncHandler(async (req, res) => {
     };
   });
 
-  // price calculations
-  const itemsPrice = finalProducts.reduce(
-    (sum, item) => sum + item.priceAtPurchase * item.quantity,
-    0
-  );
-
-  const shippingPrice = itemsPrice > 1000 ? 0 : 50; // example logic
-  const taxPrice = itemsPrice * 0.18; // 18% GST example
-  const totalPrice = itemsPrice + shippingPrice + taxPrice;
-
   const order = await Order.create({
     products: finalProducts,
     user: req.user._id,
     shippingAddress,
     paymentMode,
-    itemsPrice,
-    shippingPrice,
-    taxPrice,
-    totalPrice,
+    paymentStatus:
+      paymentMode === "cod"
+        ? paymentStatusEnum.PENDING
+        : paymentStatusEnum.PENDING,
   });
 
-  // reduce stock
-  for (const item of finalProducts) {
-    await Product.findByIdAndUpdate(item.product, {
-      $inc: { stock: -item.quantity },
-    });
+  // ↓↓↓ CASE 1 → CASH ON DELIVERY ↓↓↓
+  if (paymentMode === "COD") {
+    // Reduce stock immediately
+    for (const item of finalProducts) {
+      await Product.findByIdAndUpdate(item.product, {
+        $inc: { stock: -item.quantity },
+      });
+    }
+    return res
+      .status(201)
+      .json(new ApiResponse(201, order, "COD order placed successfully"));
   }
 
-  return res
-    .status(201)
-    .json(new ApiResponse(201, order, "Order placed successfully"));
+  // ↓↓↓ CASE 2 → ONLINE / NETBANKING ↓↓↓
+  const options = {
+    amount: Math.round(order.totalPrice * 100),
+    currency: "INR",
+    receipt: `order_rcpt_${order._id}`,
+  };
+
+  const razorOrder = await razorpayInstance.orders.create(options);
+
+  await Payment.create({
+    orderId: order._id,
+    razorpayOrderId: razorOrder.id,
+    amount: order.totalPrice,
+    currency: "INR",
+    status: paymentStatusEnum.PENDING,
+  });
+
+  return res.status(200).json(
+    new ApiResponse(
+      200,
+      {
+        orderId: order._id,
+        razorpayOrderId: razorOrder.id,
+        amount: order.totalPrice,
+        currency: "INR",
+      },
+      "Razorpay order created successfully"
+    )
+  );
 });
 
+const verifyRazorpayPayment = asyncHandler(async (req, res) => {
+  const { razorpay_order_id, razorpay_payment_id, razorpay_signature } =
+    req.body;
+
+  const body = razorpay_order_id + "|" + razorpay_payment_id;
+  const expectedSignature = crypto
+    .createHmac("sha256", process.env.RAZORPAY_KEY_SECRET)
+    .update(body.toString())
+    .digest("hex");
+
+  if (expectedSignature !== razorpay_signature) {
+    throw new ApiError(400, "Invalid payment signature");
+  }
+
+  const payment = await Payment.findOne({ razorpayOrderId: razorpay_order_id });
+  if (!payment) throw new ApiError(404, "Payment record not found");
+
+  payment.razorpayPaymentId = razorpay_payment_id;
+  payment.razorpaySignature = razorpay_signature;
+  payment.status = paymentStatusEnum.SUCCESS;
+  await payment.save();
+
+  await Order.findByIdAndUpdate(payment.orderId, {
+    paymentStatus: paymentStatusEnum.SUCCESS,
+    transactionId: razorpay_payment_id,
+  });
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, payment, "Payment verified successfully"));
+});
 
 const getMyOrders = asyncHandler(async (req, res) => {
   const orders = await Order.find({ user: req.user._id }).populate(
@@ -82,7 +137,6 @@ const getMyOrders = asyncHandler(async (req, res) => {
     .json(new ApiResponse(200, orders, "User orders fetched successfully"));
 });
 
-
 const getAllOrders = asyncHandler(async (_req, res) => {
   const orders = await Order.find()
     .populate("user", "name email")
@@ -91,7 +145,6 @@ const getAllOrders = asyncHandler(async (_req, res) => {
     .status(200)
     .json(new ApiResponse(200, orders, "All orders fetched successfully"));
 });
-
 
 const getSingleOrder = asyncHandler(async (req, res) => {
   const order = await Order.findById(req.params.orderId)
@@ -114,7 +167,6 @@ const getSingleOrder = asyncHandler(async (req, res) => {
     .status(200)
     .json(new ApiResponse(200, order, "Order fetched successfully"));
 });
-
 
 const updateOrderStatus = asyncHandler(async (req, res) => {
   const { status } = req.body;
@@ -146,7 +198,6 @@ const updateOrderStatus = asyncHandler(async (req, res) => {
     .status(200)
     .json(new ApiResponse(200, order, "Order status updated successfully"));
 });
-
 
 const cancelOrder = asyncHandler(async (req, res) => {
   const order = await Order.findById(req.params.orderId);
@@ -207,4 +258,5 @@ export {
   updateOrderStatus,
   cancelOrder,
   updatePaymentStatus,
+  verifyRazorpayPayment,
 };

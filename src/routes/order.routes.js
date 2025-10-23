@@ -3,6 +3,7 @@ import { validateData } from "../middleware/validate.js";
 import {
   createOrderSchema,
   updateOrderStatusSchema,
+  verifyPaymentStatusSchema,
 } from "../validators/order.schema.js";
 import {
   createOrder,
@@ -12,6 +13,7 @@ import {
   updateOrderStatus,
   cancelOrder,
   updatePaymentStatus,
+  verifyRazorpayPayment,
 } from "../controllers/order.controller.js";
 import {
   isLoggedIn,
@@ -45,5 +47,13 @@ router
 router
   .route("/:orderId/payment-status")
   .patch(isLoggedIn, isAdminOrSeller, updatePaymentStatus);
+
+router
+  .route("/verify-payment")
+  .post(
+    isLoggedIn,
+    validateData(verifyPaymentStatusSchema),
+    verifyRazorpayPayment
+  );
 
 export default router;
