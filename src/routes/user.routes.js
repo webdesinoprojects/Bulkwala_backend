@@ -15,6 +15,7 @@ import {
   getPendingSellers,
   rejectSeller,
   getAllUsers,
+  updateAddress,
 } from "../controllers/user.controller.js";
 import { validateData } from "../middleware/validate.js";
 import {
@@ -25,6 +26,7 @@ import {
   resetPasswordSchema,
   changePasswordSchema,
   sellerApplicationSchema,
+  updateaddressSchema,
 } from "../validators/user.Schema.js";
 import { isAdmin, isLoggedIn } from "../middleware/auth.middleware.js";
 
@@ -36,6 +38,9 @@ router
   .route("/update")
   .put(validateData(updateuserSchema), isLoggedIn, updateUser);
 router.route("/profile").get(isLoggedIn, getuserProfile);
+router
+  .route("/address")
+  .put(isLoggedIn, validateData(updateaddressSchema), updateAddress);
 router.route("/verify/:userid").post(verifyUser);
 router
   .route("/forget-password")

@@ -97,6 +97,31 @@ const updateUser = asyncHandler(async (req, res) => {
     .json(new ApiResponse(200, user, "User updated successfully"));
 });
 
+const updateAddress = asyncHandler(async (req, res) => {
+  const userid = req.user._id;
+  const { name, phone, street, city, state, postalCode, country } = req.body;
+  const user = await User.findById(userid);
+
+  if (!user) {
+    throw new ApiError(404, "User not found");
+  }
+  user.address = {
+    name,
+    phone,
+    street,
+    city,
+    state,
+    postalCode,
+    country,
+  };
+
+  await user.save();
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, user, "Address updated successfully"));
+});
+
 const getuserProfile = asyncHandler(async (req, res) => {
   const userid = req.user._id;
 
@@ -373,6 +398,7 @@ export {
   loginUser,
   updateUser,
   getuserProfile,
+  updateAddress,
   verifyUser,
   forgetPassword,
   resetPassword,

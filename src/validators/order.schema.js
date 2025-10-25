@@ -16,20 +16,18 @@ const shippingAddressSchema = z.object({
 });
 
 export const createOrderSchema = z.object({
-  body: z.object({
-    products: z
-      .array(
-        z.object({
-          product: z.string().min(1, "Product ID is required"),
-          quantity: z.number().min(1, "Quantity must be at least 1"),
-        })
-      )
-      .nonempty("At least one product is required"),
+  products: z
+    .array(
+      z.object({
+        product: z.string().min(1, "Product ID is required"),
+        quantity: z.number().min(1, "Quantity must be at least 1"),
+      })
+    )
+    .nonempty("At least one product is required"),
 
-    shippingAddress: shippingAddressSchema,
+  shippingAddress: shippingAddressSchema,
 
-    paymentMode: z.enum([...availablePaymentModes]),
-  }),
+  paymentMode: z.enum([...availablePaymentModes]),
 });
 
 export const updateOrderStatusSchema = z.object({
@@ -45,9 +43,7 @@ export const updatePaymentStatusSchema = z.object({
 });
 
 export const verifyPaymentStatusSchema = z.object({
-  body: z.object({
-    razorpayOrderId: z.string().min(1, "Razorpay Order ID is required"),
-    razorpayPaymentId: z.string().min(1, "Razorpay Payment ID is required"),
-    razorpaySignature: z.string().min(1, "Razorpay Signature is required"),
-  }),
+  razorpay_order_id: z.string().min(1, "Razorpay Order ID is required"),
+  razorpay_payment_id: z.string().min(1, "Razorpay Payment ID is required"),
+  razorpay_signature: z.string().min(1, "Razorpay Signature is required"),
 });

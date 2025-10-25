@@ -7,44 +7,52 @@ import { orderStatusEnum, paymentStatusEnum } from "../utils/constant.js";
 import Payment from "../models/payment.model.js";
 import razorpayInstance from "../utils/razorpay.js";
 import crypto from "crypto";
+import Cart from "../models/cart.model.js";
 
 const createOrder = asyncHandler(async (req, res) => {
-  const { products, shippingAddress, paymentMode } = req.body;
+  const { paymentMode, shippingAddress } = req.body;
+  const userId = req.user._id;
 
-  // validate products exist & fetch their prices
-  const productIds = products.map((p) => p.product);
-  const dbProducts = await Product.find({ _id: { $in: productIds } });
-
-  if (dbProducts.length !== productIds.length) {
-    throw new ApiError(400, "One or more products not found");
+  if (!shippingAddress || Object.keys(shippingAddress).length === 0) {
+    throw new ApiError(400, "Shipping address is required");
   }
 
-  // prepare products array with priceAtPurchase
-  const finalProducts = products.map((item) => {
-    const dbProduct = dbProducts.find(
-      (p) => p._id.toString() === item.product.toString()
-    );
-    if (!dbProduct) {
-      throw new ApiError(400, `Product ${item.product} not found`);
-    }
-    if (dbProduct.stock < item.quantity) {
-      throw new ApiError(
-        400,
-        `Not enough stock for ${dbProduct.title}. Available: ${dbProduct.stock}`
-      );
-    }
-    return {
-      product: dbProduct._id,
-      quantity: item.quantity,
-      priceAtPurchase: dbProduct.discountPrice || dbProduct.price,
-    };
-  });
+  const cart = await Cart.findOne({ user: userId }).populate(
+    "items.product",
+    "title price"
+  );
 
+  if (!cart || cart.items.length === 0) {
+    throw new ApiError(400, "Your cart is empty");
+  }
+
+  // Calculate the prices manually
+  const itemsPrice = cart.items.reduce((acc, item) => {
+    const price = item.product?.price || 0;
+    return acc + price * item.quantity;
+  }, 0);
+
+  const shippingPrice = itemsPrice > 1000 ? 0 : 50;
+  const taxPrice = itemsPrice * 0.18;
+  const totalPrice = itemsPrice + shippingPrice + taxPrice;
+
+  // Create the final products array
+  const finalProducts = cart.items.map((item) => {
+    const product = item.product._id;
+    const quantity = item.quantity;
+    const priceAtPurchase = item.product.price;
+
+    return { product, quantity, priceAtPurchase };
+  });
   const order = await Order.create({
     products: finalProducts,
-    user: req.user._id,
+    user: userId,
     shippingAddress,
     paymentMode,
+    itemsPrice,
+    shippingPrice,
+    taxPrice,
+    totalPrice,
     paymentStatus:
       paymentMode === "cod"
         ? paymentStatusEnum.PENDING
@@ -98,10 +106,14 @@ const createOrder = asyncHandler(async (req, res) => {
 const verifyRazorpayPayment = asyncHandler(async (req, res) => {
   const { razorpay_order_id, razorpay_payment_id, razorpay_signature } =
     req.body;
+  console.log(
+    "Incoming body for verification from order controller:",
+    req.body
+  );
 
   const body = razorpay_order_id + "|" + razorpay_payment_id;
   const expectedSignature = crypto
-    .createHmac("sha256", process.env.RAZORPAY_KEY_SECRET)
+    .createHmac("sha256", process.env.RAZORPAY_SECRET)
     .update(body.toString())
     .digest("hex");
 

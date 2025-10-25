@@ -49,16 +49,23 @@ const getCart = asyncHandler(async (req, res) => {
     throw new ApiError(404, "Your cart is empty");
 
   //  Calculate subtotal and total
-  const subtotal = cart.items.reduce((acc, item) => {
+  const itemsPrice = cart.items.reduce((acc, item) => {
     const price = item.product?.price || 0;
     return acc + price * item.quantity;
   }, 0);
+
+  const shippingPrice = itemsPrice > 1000 ? 0 : 50;
+  const taxPrice = itemsPrice * 0.18;
+  const totalPrice = itemsPrice + shippingPrice + taxPrice;
 
   const totalItems = cart.items.reduce((acc, item) => acc + item.quantity, 0);
 
   const cartData = {
     ...cart.toObject(),
-    subtotal,
+    itemsPrice,
+    shippingPrice,
+    taxPrice,
+    totalPrice,
     totalItems,
   };
 

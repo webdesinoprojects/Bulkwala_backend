@@ -19,6 +19,7 @@ export const paymentModeEnum = {
   NETBANKING: "netbanking",
   UPI: "upi",
   CARD: "card",
+  ONLINE: "online",
 };
 
 export const availablePaymentModes = Object.values(paymentModeEnum);

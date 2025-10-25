@@ -17,7 +17,7 @@ const router = express.Router();
 router.route("/").post(isLoggedIn, validateData(addToCartSchema), addToCart);
 router.route("/clear-cart").delete(isLoggedIn, clearCart);
 router.route("/").get(isLoggedIn, getCart);
-router.route("/remove").delete(isLoggedIn, removeFromCart);
+router.route("/remove/:productId").delete(isLoggedIn, removeFromCart);
 router
   .route("/")
   .put(isLoggedIn, validateData(updateCartItemSchema), updateCartItem);

@@ -11,11 +11,11 @@ export const createuserSchema = z.object({
 
   password: z
     .string()
-  .min(1, "Password is required")
-  .regex(/[A-Z]/, "Password must contain at least one uppercase letter")
-  .regex(/[a-z]/, "Password must contain at least one lowercase letter")
-  .regex(/[0-9]/, "Password must contain at least one number")
-  .regex(/[\W_]/, "Password must contain at least one special character"),
+    .min(1, "Password is required")
+    .regex(/[A-Z]/, "Password must contain at least one uppercase letter")
+    .regex(/[a-z]/, "Password must contain at least one lowercase letter")
+    .regex(/[0-9]/, "Password must contain at least one number")
+    .regex(/[\W_]/, "Password must contain at least one special character"),
 
   phone: z.number().optional(),
 
@@ -40,6 +40,16 @@ export const updateuserSchema = z.object({
   phone: z.number().optional(),
 
   role: z.string().trim().optional(),
+});
+
+export const updateaddressSchema = z.object({
+  name: z.string().min(2, "Name is required"),
+  phone: z.string().min(10, "Phone must be at least 10 digits"),
+  street: z.string().min(3, "Street is required"),
+  city: z.string().min(2, "City is required"),
+  state: z.string().min(2, "State is required"),
+  postalCode: z.string().min(4, "Postal Code is required"),
+  country: z.string().default("India"),
 });
 
 export const loginuserSchema = z.object({

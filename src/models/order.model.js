@@ -104,19 +104,6 @@ const orderSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-// Auto-calc prices before saving
-orderSchema.pre("save", async function (next) {
-  try {
-    this.itemsPrice = this.products.reduce(
-      (sum, item) => sum + item.priceAtPurchase * item.quantity,
-      0
-    );
-    this.totalPrice = this.itemsPrice + this.shippingPrice + this.taxPrice;
-    next();
-  } catch (err) {
-    next(err);
-  }
-});
 
 const Order = mongoose.model("Order", orderSchema);
 export default Order;
