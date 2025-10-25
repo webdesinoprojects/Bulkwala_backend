@@ -69,6 +69,9 @@ const getCart = asyncHandler(async (req, res) => {
     totalItems,
   };
 
+  // Optional: Log cart data (for debugging purposes)
+  console.log("Cart Data:", cartData);
+
   return res
     .status(200)
     .json(new ApiResponse(200, cartData, "Cart fetched successfully"));
