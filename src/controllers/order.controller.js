@@ -129,14 +129,35 @@ const verifyRazorpayPayment = asyncHandler(async (req, res) => {
   payment.status = paymentStatusEnum.SUCCESS;
   await payment.save();
 
-  await Order.findByIdAndUpdate(payment.orderId, {
-    paymentStatus: paymentStatusEnum.SUCCESS,
-    transactionId: razorpay_payment_id,
-  });
+  const updatedOrder = await Order.findByIdAndUpdate(
+    payment.orderId,
+    {
+      paymentStatus: paymentStatusEnum.SUCCESS,
+      transactionId: razorpay_payment_id,
+    },
+    { new: true }
+  )
+    .populate("products.product", "title price images")
+    .populate("user", "name email");
+  if (!updatedOrder)
+    throw new ApiError(404, "Order not found for this payment");
+
+  // ✅ Combine both order and payment data for frontend
+  const responseData = {
+    order: updatedOrder,
+    payment: {
+      _id: payment._id,
+      razorpayOrderId: payment.razorpayOrderId,
+      razorpayPaymentId: payment.razorpayPaymentId,
+      amount: payment.amount,
+      status: payment.status,
+      currency: payment.currency,
+    },
+  };
 
   return res
     .status(200)
-    .json(new ApiResponse(200, payment, "Payment verified successfully"));
+    .json(new ApiResponse(200, responseData, "Payment verified successfully"));
 });
 
 const getMyOrders = asyncHandler(async (req, res) => {
