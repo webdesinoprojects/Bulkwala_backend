@@ -25,13 +25,11 @@ export const paymentModeEnum = {
 export const availablePaymentModes = Object.values(paymentModeEnum);
 
 export const orderStatusEnum = {
-  PLACED: "Placed",
   SHIPPED: "Shipped",
   DELIVERED: "Delivered",
   PENDING: "Pending",
   PROCESSING: "Processing",
   CANCELLED: "Cancelled",
-  REFUNFED: "Refunded",
 };
 
 export const availableOrderStatus = Object.values(orderStatusEnum);

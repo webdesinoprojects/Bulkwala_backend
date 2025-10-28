@@ -31,9 +31,7 @@ export const createOrderSchema = z.object({
 });
 
 export const updateOrderStatusSchema = z.object({
-  body: z.object({
-    status: z.enum([...availableOrderStatus]),
-  }),
+  status: z.enum([...availableOrderStatus]),
 });
 
 export const updatePaymentStatusSchema = z.object({

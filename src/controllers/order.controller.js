@@ -44,29 +44,30 @@ const createOrder = asyncHandler(async (req, res) => {
 
     return { product, quantity, priceAtPurchase };
   });
-  const order = await Order.create({
-    products: finalProducts,
-    user: userId,
-    shippingAddress,
-    paymentMode,
-    itemsPrice,
-    shippingPrice,
-    taxPrice,
-    totalPrice,
-    paymentStatus:
-      paymentMode === "cod"
-        ? paymentStatusEnum.PENDING
-        : paymentStatusEnum.PENDING,
-  });
 
   // ↓↓↓ CASE 1 → CASH ON DELIVERY ↓↓↓
-  if (paymentMode === "COD") {
+  if (paymentMode === "cod") {
+    const order = await Order.create({
+      products: finalProducts,
+      user: userId,
+      shippingAddress,
+      paymentMode,
+      itemsPrice,
+      shippingPrice,
+      taxPrice,
+      totalPrice,
+      paymentStatus: paymentStatusEnum.PENDING,
+    });
+
     // Reduce stock immediately
     for (const item of finalProducts) {
       await Product.findByIdAndUpdate(item.product, {
         $inc: { stock: -item.quantity },
       });
     }
+    // Clear user cart
+    await Cart.findOneAndUpdate({ user: userId }, { $set: { items: [] } });
+
     return res
       .status(201)
       .json(new ApiResponse(201, order, "COD order placed successfully"));
@@ -74,28 +75,33 @@ const createOrder = asyncHandler(async (req, res) => {
 
   // ↓↓↓ CASE 2 → ONLINE / NETBANKING ↓↓↓
   const options = {
-    amount: Math.round(order.totalPrice * 100),
+    amount: Math.round(totalPrice * 100),
     currency: "INR",
-    receipt: `order_rcpt_${order._id}`,
+    receipt: `order_rcpt_${Date.now()}`,
   };
 
   const razorOrder = await razorpayInstance.orders.create(options);
 
   await Payment.create({
-    orderId: order._id,
+    user: userId,
     razorpayOrderId: razorOrder.id,
-    amount: order.totalPrice,
+    amount: totalPrice,
     currency: "INR",
     status: paymentStatusEnum.PENDING,
+    paymentMode,
+    shippingAddress,
+    products: finalProducts,
+    itemsPrice,
+    shippingPrice,
+    taxPrice,
   });
 
   return res.status(200).json(
     new ApiResponse(
       200,
       {
-        orderId: order._id,
         razorpayOrderId: razorOrder.id,
-        amount: order.totalPrice,
+        amount: totalPrice,
         currency: "INR",
       },
       "Razorpay order created successfully"
@@ -124,40 +130,48 @@ const verifyRazorpayPayment = asyncHandler(async (req, res) => {
   const payment = await Payment.findOne({ razorpayOrderId: razorpay_order_id });
   if (!payment) throw new ApiError(404, "Payment record not found");
 
+  // Update payment info
   payment.razorpayPaymentId = razorpay_payment_id;
   payment.razorpaySignature = razorpay_signature;
   payment.status = paymentStatusEnum.SUCCESS;
   await payment.save();
 
-  const updatedOrder = await Order.findByIdAndUpdate(
-    payment.orderId,
-    {
-      paymentStatus: paymentStatusEnum.SUCCESS,
-      transactionId: razorpay_payment_id,
-    },
-    { new: true }
-  )
-    .populate("products.product", "title price images")
-    .populate("user", "name email");
-  if (!updatedOrder)
-    throw new ApiError(404, "Order not found for this payment");
+  // ✅ Create actual order now
+  const order = await Order.create({
+    products: payment.products,
+    user: payment.user,
+    shippingAddress: payment.shippingAddress,
+    paymentMode: payment.paymentMode,
+    itemsPrice: payment.itemsPrice,
+    shippingPrice: payment.shippingPrice,
+    taxPrice: payment.taxPrice,
+    totalPrice: payment.amount,
+    paymentStatus: paymentStatusEnum.SUCCESS,
+    transactionId: razorpay_payment_id,
+  });
+  // ✅ Link payment → order
+  payment.orderId = order._id;
+  await payment.save();
 
-  // ✅ Combine both order and payment data for frontend
-  const responseData = {
-    order: updatedOrder,
-    payment: {
-      _id: payment._id,
-      razorpayOrderId: payment.razorpayOrderId,
-      razorpayPaymentId: payment.razorpayPaymentId,
-      amount: payment.amount,
-      status: payment.status,
-      currency: payment.currency,
-    },
-  };
+  // ✅ Reduce stock
+  for (const item of payment.products) {
+    await Product.findByIdAndUpdate(item.product, {
+      $inc: { stock: -item.quantity },
+    });
+  }
+
+  // ✅ Clear cart
+  await Cart.findOneAndUpdate({ user: payment.user }, { $set: { items: [] } });
 
   return res
     .status(200)
-    .json(new ApiResponse(200, responseData, "Payment verified successfully"));
+    .json(
+      new ApiResponse(
+        200,
+        { order, payment },
+        "Payment verified and order created successfully"
+      )
+    );
 });
 
 const getMyOrders = asyncHandler(async (req, res) => {

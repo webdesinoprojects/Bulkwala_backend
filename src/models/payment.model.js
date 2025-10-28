@@ -6,11 +6,16 @@ import {
 
 const paymentSchema = new mongoose.Schema(
   {
+    user: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
+    },
+
+    // Order will be created later (only after successful payment)
     orderId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Order",
-      required: true,
-      index: true,
     },
     razorpayOrderId: { type: String },
     razorpayPaymentId: { type: String },
@@ -22,8 +27,33 @@ const paymentSchema = new mongoose.Schema(
       enum: availablePaymentStatus,
       default: paymentStatusEnum.PENDING,
     },
-    method: { type: String }, // e.g. card, upi, netbanking
+    paymentMode: { type: String, required: true }, // e.g. card, upi, netbanking
+
+    // Store cart items before creating order
+    products: [
+      {
+        product: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "Product",
+          required: true,
+        },
+        quantity: { type: Number, required: true },
+        priceAtPurchase: { type: Number, required: true },
+      },
+    ],
+
+    // Temporarily store address before order creation
+    shippingAddress: {
+      name: String,
+      phone: String,
+      street: String,
+      city: String,
+      state: String,
+      postalCode: String,
+      country: String,
+    },
   },
+
   { timestamps: true }
 );
 
