@@ -27,7 +27,13 @@ const paymentSchema = new mongoose.Schema(
       enum: availablePaymentStatus,
       default: paymentStatusEnum.PENDING,
     },
-    paymentMode: { type: String, required: true }, // e.g. card, upi, netbanking
+    paymentMode: { type: String, required: true },
+
+    // ✅ Add these fields to fix "itemsPrice is required"
+
+    itemsPrice: { type: Number, required: true },
+    shippingPrice: { type: Number, required: true },
+    taxPrice: { type: Number, required: true },
 
     // Store cart items before creating order
     products: [

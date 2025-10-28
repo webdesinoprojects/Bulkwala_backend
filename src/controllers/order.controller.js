@@ -163,12 +163,17 @@ const verifyRazorpayPayment = asyncHandler(async (req, res) => {
   // ✅ Clear cart
   await Cart.findOneAndUpdate({ user: payment.user }, { $set: { items: [] } });
 
+  const populatedOrder = await Order.findById(order._id).populate(
+    "products.product",
+    "title price images"
+  );
+
   return res
     .status(200)
     .json(
       new ApiResponse(
         200,
-        { order, payment },
+        { populatedOrder, payment },
         "Payment verified and order created successfully"
       )
     );
