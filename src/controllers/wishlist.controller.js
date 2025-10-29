@@ -28,6 +28,7 @@ export const addToWishlist = asyncHandler(async (req, res) => {
     }
     await wishlist.save();
   }
+  await wishlist.populate("products", "title price images slug");
 
   return res
     .status(200)
@@ -61,7 +62,7 @@ export const removeFromWishlist = asyncHandler(async (req, res) => {
     { user: userId },
     { $pull: { products: productId } },
     { new: true }
-  );
+  ).populate("products", "title price images slug");
 
   return res
     .status(200)
