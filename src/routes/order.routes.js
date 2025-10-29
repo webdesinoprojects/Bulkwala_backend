@@ -33,7 +33,7 @@ router.route("/:orderId/cancel").post(isLoggedIn, isCustomer, cancelOrder);
 
 router.route("/").get(isLoggedIn, isAdminOrSeller, getAllOrders);
 
-router.route("/:orderId").get(isLoggedIn, isAdminOrSeller, getSingleOrder);
+router.route("/:orderId").get(isLoggedIn, isCustomer, getSingleOrder);
 
 router
   .route("/:orderId/status")

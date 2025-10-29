@@ -152,15 +152,55 @@ const getProducts = asyncHandler(async (req, res) => {
 
   const filter = { isDeleted: false };
 
+  // ✅ Category (ObjectId)
   if (category) filter.category = category;
-  if (subcategory) filter.subcategory = subcategory;
+
+  // ✅ Subcategory (supports both ObjectId & name)
+  if (subcategory) {
+    // If subcategory is not a valid ObjectId → treat it as name
+    const isObjectId = /^[0-9a-fA-F]{24}$/.test(subcategory);
+
+    if (isObjectId) {
+      filter.subcategory = subcategory;
+    } else {
+      const sub = await Subcategory.findOne({
+        name: { $regex: new RegExp(subcategory, "i") },
+        isDeleted: false,
+      }).select("_id");
+
+      if (sub) {
+        filter.subcategory = sub._id;
+      } else {
+        // no subcategory match found — return empty response
+        return res
+          .status(200)
+          .json(
+            new ApiResponse(
+              200,
+              {
+                products: [],
+                total: 0,
+                page: Number(page),
+                limit: Number(limit),
+              },
+              "No products found for given subcategory"
+            )
+          );
+      }
+    }
+  }
+
+  // ✅ Seller Filter
   if (sellerId) filter.createdBy = sellerId;
+
+  // ✅ Price Range Filter
   if (minPrice || maxPrice) filter.price = {};
   if (minPrice) filter.price.$gte = Number(minPrice);
   if (maxPrice) filter.price.$lte = Number(maxPrice);
 
+  // ✅ Search Filter
   if (search && search.trim() !== "") {
-    const regex = new RegExp(search.trim(), "i"); // case-insensitive partial match
+    const regex = new RegExp(search.trim(), "i");
     filter.$or = [
       { title: regex },
       { description: regex },
@@ -169,8 +209,10 @@ const getProducts = asyncHandler(async (req, res) => {
     ];
   }
 
+  // ✅ Pagination
   const skip = (Number(page) - 1) * Number(limit);
 
+  // ✅ Fetch Products
   const products = await Product.find(filter)
     .populate("category", "name slug")
     .populate("subcategory", "name slug")
