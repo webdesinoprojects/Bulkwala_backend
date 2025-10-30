@@ -11,8 +11,8 @@ const router = express.Router();
 
 router.use(isLoggedIn);
 
+router.route("/clear").delete(clearWishlist);
 router.route("/").get(getWishlist).post(addToWishlist);
 router.route("/:productId").delete(removeFromWishlist);
-router.route("/clear").delete(clearWishlist);
 
 export default router;
