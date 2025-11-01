@@ -120,7 +120,7 @@ const deleteCategory = asyncHandler(async (req, res) => {
 
 const updateCategory = asyncHandler(async (req, res) => {
   const { slug } = req.params;
-  const { name } = req.body;
+  const { name, existingImage, existingBanners } = req.body;
 
   const category = await Category.findOne({ slug, isDeleted: false });
   if (!category) throw new ApiError(404, "Category not found");
@@ -144,6 +144,9 @@ const updateCategory = asyncHandler(async (req, res) => {
     });
 
     category.img_url = result.url;
+  } else if (existingImage) {
+    // keep existing image if not replaced
+    category.img_url = existingImage;
   }
 
   // Replace banner images if new ones uploaded
