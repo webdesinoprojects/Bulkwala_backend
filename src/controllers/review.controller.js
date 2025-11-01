@@ -25,8 +25,8 @@ const updateProductRating = async (productId) => {
   });
 };
 
-// ✅ Add or Update a Review
-export const addOrUpdateReview = asyncHandler(async (req, res) => {
+//  Add or Update a Review
+export const addReview = asyncHandler(async (req, res) => {
   const userId = req.user._id;
   const { productId } = req.params;
   const { rating, text } = req.body;
@@ -34,79 +34,79 @@ export const addOrUpdateReview = asyncHandler(async (req, res) => {
   const product = await Product.findById(productId);
   if (!product) throw new ApiError(404, "Product not found");
 
-  let uploadedImages = [];
+  const existing = await Review.findOne({ product: productId, user: userId });
+  if (existing) throw new ApiError(400, "You already reviewed this product");
 
-  // 🔹 Upload review images to ImageKit
+  let uploadedImages = [];
   if (req.files?.images && req.files.images.length > 0) {
     const uploads = await Promise.all(
       req.files.images.map(async (file) => {
         const base64 = file.buffer.toString("base64");
         const fileData = `data:${file.mimetype};base64,${base64}`;
-        const fileName = `${Date.now()}_${uuidv4()}_${file.originalname}`;
-
         const result = await imagekit.upload({
           file: fileData,
-          fileName,
+          fileName: `${Date.now()}_${uuidv4()}_${file.originalname}`,
           folder: "reviews/images",
         });
-
         return result.url;
       })
     );
     uploadedImages = uploads;
   }
 
-  try {
-    // 🔹 Find existing review
-    let review = await Review.findOne({ product: productId, user: userId });
+  const review = await Review.create({
+    product: productId,
+    user: userId,
+    rating,
+    text,
+    images: uploadedImages,
+  });
 
-    if (review) {
-      // ✅ Update existing review
-      review.rating = rating;
-      review.text = text;
-      if (uploadedImages.length > 0) review.images = uploadedImages;
-      await review.save();
-    } else {
-      // ✅ Create new review
-      review = await Review.create({
-        product: productId,
-        user: userId,
-        rating,
-        text,
-        images: uploadedImages,
-      });
-    }
+  await updateProductRating(productId);
+  const populatedReview = await review.populate("user", "name email");
+  res
+    .status(201)
+    .json(new ApiResponse(201, populatedReview, "Review added successfully"));
+});
 
-    // ✅ Populate user details
-    const populatedReview = await review.populate("user", "name email");
+// UPDATE an existing Review
+export const updateReview = asyncHandler(async (req, res) => {
+  const userId = req.user._id;
+  const { productId, reviewId } = req.params;
+  const { rating, text } = req.body;
 
-    // ✅ Update product rating stats
-    await updateProductRating(productId);
+  const review = await Review.findById(reviewId);
+  if (!review) throw new ApiError(404, "Review not found");
+  if (review.user.toString() !== userId.toString())
+    throw new ApiError(403, "You can only edit your own review");
 
-    return res
-      .status(200)
-      .json(
-        new ApiResponse(
-          200,
-          populatedReview,
-          review.isNew
-            ? "Review added successfully"
-            : "Review updated successfully"
-        )
-      );
-  } catch (error) {
-    // 🔹 Duplicate review (E11000 index violation)
-    if (error.code === 11000) {
-      throw new ApiError(
-        400,
-        "You’ve already reviewed this product. You can update your existing review."
-      );
-    }
-
-    // 🔹 Other errors
-    console.error("❌ Review error:", error);
-    throw new ApiError(500, "Failed to submit review");
+  let uploadedImages = [];
+  if (req.files?.images && req.files.images.length > 0) {
+    const uploads = await Promise.all(
+      req.files.images.map(async (file) => {
+        const base64 = file.buffer.toString("base64");
+        const fileData = `data:${file.mimetype};base64,${base64}`;
+        const result = await imagekit.upload({
+          file: fileData,
+          fileName: `${Date.now()}_${uuidv4()}_${file.originalname}`,
+          folder: "reviews/images",
+        });
+        return result.url;
+      })
+    );
+    uploadedImages = uploads;
   }
+
+  review.rating = rating;
+  review.text = text;
+  if (uploadedImages.length > 0) review.images = uploadedImages;
+  await review.save();
+
+  await updateProductRating(productId);
+  const populatedReview = await review.populate("user", "name email");
+  res
+    .status(200)
+    .json(new ApiResponse(200, populatedReview, "Review updated successfully"));
 });
 
 // ✅ Get all reviews for a product
