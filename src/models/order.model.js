@@ -100,10 +100,24 @@ const orderSchema = new mongoose.Schema(
     cancelledAt: {
       type: Date,
     },
+    trackingId: {
+      type: String,
+      default: null,
+    },
+    courierName: {
+      type: String,
+      default: "Delhivery",
+    },
+    shipmentStatus: {
+      type: String,
+      default: "Pending",
+    },
+    shipmentCreatedAt: {
+      type: Date,
+    },
   },
   { timestamps: true }
 );
-
 
 const Order = mongoose.model("Order", orderSchema);
 export default Order;

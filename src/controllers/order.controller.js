@@ -8,6 +8,7 @@ import Payment from "../models/payment.model.js";
 import razorpayInstance from "../utils/razorpay.js";
 import crypto from "crypto";
 import Cart from "../models/cart.model.js";
+import { createShipment, trackShipment } from "../utils/delhivery.js";
 
 const createOrder = asyncHandler(async (req, res) => {
   const { paymentMode, shippingAddress } = req.body;
@@ -59,6 +60,19 @@ const createOrder = asyncHandler(async (req, res) => {
       paymentStatus: paymentStatusEnum.PENDING,
     });
 
+    const shipmentData = await createShipment(order);
+    if (
+      shipmentData &&
+      shipmentData.packages &&
+      shipmentData.packages.length > 0
+    ) {
+      const trackingId = shipmentData.packages[0].waybill;
+      order.trackingId = trackingId;
+      order.shipmentStatus = "Created";
+      order.shipmentCreatedAt = new Date();
+      await order.save();
+    }
+
     // Reduce stock immediately
     for (const item of finalProducts) {
       await Product.findByIdAndUpdate(item.product, {
@@ -70,7 +84,13 @@ const createOrder = asyncHandler(async (req, res) => {
 
     return res
       .status(201)
-      .json(new ApiResponse(201, order, "COD order placed successfully"));
+      .json(
+        new ApiResponse(
+          201,
+          order,
+          "COD order placed and shipment created successfully"
+        )
+      );
   }
 
   // ↓↓↓ CASE 2 → ONLINE / NETBANKING ↓↓↓
@@ -152,6 +172,20 @@ const verifyRazorpayPayment = asyncHandler(async (req, res) => {
   // ✅ Link payment → order
   payment.orderId = order._id;
   await payment.save();
+
+  const shipmentData = await createShipment(order);
+
+  if (
+    shipmentData &&
+    shipmentData.packages &&
+    shipmentData.packages.length > 0
+  ) {
+    const trackingId = shipmentData.packages[0].waybill;
+    order.trackingId = trackingId;
+    order.shipmentStatus = "Created";
+    order.shipmentCreatedAt = new Date();
+    await order.save();
+  }
 
   // ✅ Reduce stock
   for (const item of payment.products) {
@@ -302,6 +336,21 @@ const updatePaymentStatus = asyncHandler(async (req, res) => {
     .json(new ApiResponse(200, order, "Payment status updated successfully"));
 });
 
+const trackOrder = asyncHandler(async (req, res) => {
+  const order = await Order.findById(req.params.orderId);
+  if (!order) throw new ApiError(404, "Order not found");
+  if (!order.trackingId)
+    throw new ApiError(404, "Tracking ID not available yet");
+
+  const trackingData = await trackShipment(order.trackingId);
+
+  return res
+    .status(200)
+    .json(
+      new ApiResponse(200, trackingData, "Tracking data fetched successfully")
+    );
+});
+
 export {
   createOrder,
   getMyOrders,
@@ -311,4 +360,5 @@ export {
   cancelOrder,
   updatePaymentStatus,
   verifyRazorpayPayment,
+  trackOrder,
 };

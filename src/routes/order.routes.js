@@ -14,6 +14,7 @@ import {
   cancelOrder,
   updatePaymentStatus,
   verifyRazorpayPayment,
+  trackOrder,
 } from "../controllers/order.controller.js";
 import {
   isLoggedIn,
@@ -34,6 +35,8 @@ router.route("/:orderId/cancel").post(isLoggedIn, isCustomer, cancelOrder);
 router.route("/").get(isLoggedIn, isAdminOrSeller, getAllOrders);
 
 router.route("/:orderId").get(isLoggedIn, isCustomer, getSingleOrder);
+
+router.route("/track/:orderId").get(isLoggedIn, trackOrder);
 
 router
   .route("/:orderId/status")
