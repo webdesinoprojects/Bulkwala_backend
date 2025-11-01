@@ -25,21 +25,10 @@ export const createuserSchema = z.object({
 export const updateuserSchema = z.object({
   name: z.string().trim().min(1).optional(),
 
-  email: z
+  phone: z
     .string()
-    .trim()
-    .email({ message: "Invalid email format" })
-    .toLowerCase()
+    .regex(/^[0-9]{10}$/, "Phone number must be 10 digits")
     .optional(),
-
-  password: z
-    .string()
-    .min(6, { message: "Password must be at least 6 characters long" })
-    .optional(),
-
-  phone: z.number().optional(),
-
-  role: z.string().trim().optional(),
 });
 
 export const updateaddressSchema = z.object({

@@ -77,17 +77,15 @@ const loginUser = asyncHandler(async (req, res) => {
 });
 
 const updateUser = asyncHandler(async (req, res) => {
-  const { name, email, password, phone } = req.body;
+  const { name, phone } = req.body;
+  const userid = req.user._id;
 
-  const user = await User.findOne({ email });
-
+  const user = await User.findById(userid);
   if (!user) {
     throw new ApiError(404, "User not found");
   }
 
   user.name = name ?? user.name;
-  user.email = email ?? user.email;
-  user.password = password ?? user.password;
   user.phone = phone ?? user.phone;
 
   await user.save();
