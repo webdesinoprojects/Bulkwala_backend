@@ -9,6 +9,7 @@ import razorpayInstance from "../utils/razorpay.js";
 import crypto from "crypto";
 import Cart from "../models/cart.model.js";
 import { createShipment, trackShipment } from "../utils/delhivery.js";
+import { mapDelhiveryToOrderStatus } from "../utils/delhiveryStatusMap.js";
 
 const createOrder = asyncHandler(async (req, res) => {
   const { paymentMode, shippingAddress } = req.body;
@@ -351,6 +352,38 @@ const trackOrder = asyncHandler(async (req, res) => {
     );
 });
 
+const syncOrderFromCourier = asyncHandler(async (req, res) => {
+  const order = await Order.findById(req.params.orderId);
+  if (!order) throw new ApiError(404, "Order not found");
+  if (!order.trackingId) throw new ApiError(400, "No trackingId on order");
+
+  const data = await trackShipment(order.trackingId);
+  const shipment = data?.ShipmentData?.[0]?.Shipment;
+  if (!shipment) {
+    return res
+      .status(200)
+      .json(new ApiResponse(200, order, "No shipment in response"));
+  }
+
+  const raw = shipment?.Status?.Status || shipment?.Status || "Pending";
+  const mapped = mapDelhiveryToOrderStatus(raw);
+  order.shipmentStatus = raw;
+  order.status = mapped;
+
+  const lastScan = shipment?.Scans?.[shipment?.Scans.length - 1]?.ScanDetail;
+  if (lastScan?.ScanDateTime)
+    order.lastShipmentEventAt = new Date(lastScan.ScanDateTime);
+  if (mapped === "Delivered" && !order.deliveredAt)
+    order.deliveredAt = new Date();
+  if (mapped === "Cancelled" && !order.cancelledAt)
+    order.cancelledAt = new Date();
+
+  await order.save();
+  return res
+    .status(200)
+    .json(new ApiResponse(200, order, "Order synced with Delhivery"));
+});
+
 export {
   createOrder,
   getMyOrders,
@@ -361,4 +394,5 @@ export {
   updatePaymentStatus,
   verifyRazorpayPayment,
   trackOrder,
+  syncOrderFromCourier,
 };

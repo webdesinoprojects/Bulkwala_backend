@@ -15,11 +15,13 @@ import {
   updatePaymentStatus,
   verifyRazorpayPayment,
   trackOrder,
+  syncOrderFromCourier,
 } from "../controllers/order.controller.js";
 import {
   isLoggedIn,
   isAdminOrSeller,
   isCustomer,
+  isAdmin,
 } from "../middleware/auth.middleware.js";
 
 const router = express.Router();
@@ -58,5 +60,8 @@ router
     validateData(verifyPaymentStatusSchema),
     verifyRazorpayPayment
   );
+router
+  .route("/:orderId/sync-shipment")
+  .post(isLoggedIn, isAdmin, syncOrderFromCourier);
 
 export default router;
