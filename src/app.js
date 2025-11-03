@@ -2,7 +2,6 @@ import express from "express";
 import cors from "cors";
 import cookieParser from "cookie-parser";
 import morgan from "morgan";
-import razorpayWebhookRouter from "./routes/razorpayWebhook.route.js";
 
 const app = express();
 
@@ -14,7 +13,6 @@ app.use(
     credentials: true,
   })
 );
-app.use("/api", razorpayWebhookRouter);
 
 app.use(morgan("dev"));
 app.use(cookieParser());
@@ -33,11 +31,9 @@ import queryRoutes from "./routes/query.routes.js";
 import wishlistRoutes from "./routes/wishlist.routes.js";
 import reviewRoutes from "./routes/review.routes.js";
 import { globalErrorHandler } from "./middleware/globalError.middleware.js";
-import courierRouter from "./routes/courier.routes.js";
 
 // routes
 
-app.use("/api", courierRouter);
 app.use("/api/users", userRoutes);
 app.use("/api/category", categoryRoutes);
 app.use("/api/subcategory", subcategoryRoutes);

@@ -1,3 +1,4 @@
+import crypto from "crypto";
 import Order from "../models/order.model.js";
 import Product from "../models/product.model.js";
 import { ApiError } from "../utils/ApiError.js";
@@ -6,7 +7,6 @@ import { ApiResponse } from "../utils/ApiResponse.js";
 import { orderStatusEnum, paymentStatusEnum } from "../utils/constant.js";
 import Payment from "../models/payment.model.js";
 import razorpayInstance from "../utils/razorpay.js";
-import crypto from "crypto";
 import Cart from "../models/cart.model.js";
 import { createShipment, trackShipment } from "../utils/delhivery.js";
 import { mapDelhiveryToOrderStatus } from "../utils/delhiveryStatusMap.js";
@@ -174,19 +174,22 @@ const verifyRazorpayPayment = asyncHandler(async (req, res) => {
   payment.orderId = order._id;
   await payment.save();
 
-  const shipmentData = await createShipment(order);
-
-  if (
-    shipmentData &&
-    shipmentData.packages &&
-    shipmentData.packages.length > 0
-  ) {
-    const trackingId = shipmentData.packages[0].waybill;
-    order.trackingId = trackingId;
-    order.shipmentStatus = "Created";
-    order.shipmentCreatedAt = new Date();
-    await order.save();
+  let shipmentData = null;
+  try {
+    shipmentData = await createShipment(order);
+    if (shipmentData?.packages?.length > 0) {
+      const trackingId = shipmentData.packages[0].waybill;
+      order.trackingId = trackingId;
+      order.shipmentStatus = "Created";
+      order.shipmentCreatedAt = new Date();
+    } else {
+      order.shipmentStatus = "Error: No waybill returned";
+    }
+  } catch (err) {
+    console.error("Delhivery shipment creation failed:", err.message);
+    order.shipmentStatus = "Error: Shipment not created";
   }
+  await order.save();
 
   // ✅ Reduce stock
   for (const item of payment.products) {
@@ -227,7 +230,9 @@ const getMyOrders = asyncHandler(async (req, res) => {
 const getAllOrders = asyncHandler(async (_req, res) => {
   const orders = await Order.find()
     .populate("user", "name email")
-    .populate("products.product", "title price images");
+    .populate("products.product", "title price images")
+    .sort({ createdAt: -1 });
+
   return res
     .status(200)
     .json(new ApiResponse(200, orders, "All orders fetched successfully"));
@@ -384,6 +389,194 @@ const syncOrderFromCourier = asyncHandler(async (req, res) => {
     .json(new ApiResponse(200, order, "Order synced with Delhivery"));
 });
 
+const retryShipment = asyncHandler(async (req, res) => {
+  const { orderId } = req.params;
+
+  const order = await Order.findById(orderId);
+  if (!order) throw new ApiError(404, "Order not found");
+
+  // 🧩 Optional guard: Only retry if not already shipped
+  if (order.trackingId && order.shipmentStatus === "Created") {
+    return res
+      .status(400)
+      .json(new ApiResponse(400, null, "Shipment already exists"));
+  }
+
+  let shipmentData = null;
+  try {
+    shipmentData = await createShipment(order);
+
+    if (shipmentData?.packages?.length > 0) {
+      const trackingId = shipmentData.packages[0].waybill;
+      order.trackingId = trackingId;
+      order.shipmentStatus = "Created";
+      order.shipmentCreatedAt = new Date();
+      order.shipmentCreated = true;
+      await order.save();
+
+      return res
+        .status(200)
+        .json(new ApiResponse(200, order, "Shipment recreated successfully"));
+    } else {
+      order.shipmentStatus = "Error: No waybill returned";
+      order.shipmentCreated = false;
+      await order.save();
+      throw new ApiError(500, "Shipment API returned invalid response");
+    }
+  } catch (err) {
+    console.error("🚨 Retry shipment failed:", err.message);
+    order.shipmentStatus = "Error: Shipment creation failed";
+    order.shipmentCreated = false;
+    await order.save();
+    throw new ApiError(500, `Shipment retry failed: ${err.message}`);
+  }
+});
+
+const delhiveryWebhook = asyncHandler(async (req, res) => {
+  const token = req.headers["x-delhivery-webhook-token"];
+
+  // 🛡️ Optional security check if you set DELHIVERY_WEBHOOK_TOKEN in .env
+  if (!token || token !== process.env.DELHIVERY_WEBHOOK_TOKEN) {
+    console.warn("⚠️ Unauthorized Delhivery webhook call");
+    return res.status(401).json({ success: false, message: "Unauthorized" });
+  }
+
+  const body = req.body || {};
+  console.log("📦 Delhivery Webhook Received:", JSON.stringify(body));
+
+  // Normalize structure (Delhivery payloads vary a lot)
+  const shipment =
+    body?.Shipment ||
+    body?.shipment ||
+    body?.payload?.Shipment ||
+    body?.payload?.shipment ||
+    null;
+
+  const awb =
+    shipment?.AWB ||
+    shipment?.Waybill ||
+    body?.AWB ||
+    body?.Waybill ||
+    body?.waybill;
+
+  const rawStatus =
+    shipment?.Status?.Status ||
+    shipment?.Status ||
+    body?.Status ||
+    body?.status ||
+    "";
+
+  const scanTime =
+    shipment?.ScanDetail?.ScanDateTime ||
+    body?.ScanDetail?.ScanDateTime ||
+    body?.event_time ||
+    null;
+
+  if (!awb) {
+    console.warn("⚠️ Webhook missing AWB/Waybill");
+    return res.status(400).json({ success: false, message: "No AWB/Waybill" });
+  }
+
+  const order = await Order.findOne({ trackingId: awb });
+  if (!order) {
+    console.warn("⚠️ Order not found for waybill:", awb);
+    return res.status(404).json({ success: false, message: "Order not found" });
+  }
+
+  const mapped = mapDelhiveryToOrderStatus(rawStatus);
+
+  // Idempotent update: only save if status changed
+  if (order.status !== mapped || order.shipmentStatus !== rawStatus) {
+    order.shipmentStatus = rawStatus || order.shipmentStatus;
+    order.status = mapped;
+
+    if (mapped === "Delivered" && !order.deliveredAt)
+      order.deliveredAt = new Date();
+    if (mapped === "Cancelled" && !order.cancelledAt)
+      order.cancelledAt = new Date();
+    if (scanTime) order.lastShipmentEventAt = new Date(scanTime);
+
+    await order.save();
+    console.log(`✅ Order ${order._id} updated → ${mapped} (${rawStatus})`);
+  } else {
+    console.log(`ℹ️ No status change for ${awb} (${rawStatus})`);
+  }
+
+  return res.status(200).json({ success: true });
+});
+
+const razorpayWebhook = asyncHandler(async (req, res) => {
+  const secret = process.env.RAZORPAY_WEBHOOK_SECRET;
+  const signature = req.headers["x-razorpay-signature"];
+  const body = JSON.stringify(req.body);
+
+  // ✅ Verify webhook signature
+  const expectedSignature = crypto
+    .createHmac("sha256", secret)
+    .update(body)
+    .digest("hex");
+
+  if (expectedSignature !== signature) {
+    console.warn("⚠️ Invalid Razorpay signature");
+    return res
+      .status(400)
+      .json({ success: false, message: "Invalid signature" });
+  }
+
+  const event = req.body.event;
+  const paymentEntity = req.body.payload?.payment?.entity;
+
+  if (!paymentEntity) {
+    console.warn("⚠️ Missing payment entity in webhook");
+    return res.status(200).json({ success: true });
+  }
+
+  const razorpayOrderId = paymentEntity.order_id;
+  const razorpayPaymentId = paymentEntity.id;
+  const paymentStatus = paymentEntity.status;
+
+  console.log("💳 Webhook Event:", event, "| Status:", paymentStatus);
+
+  const payment = await Payment.findOne({ razorpayOrderId });
+  if (!payment) {
+    console.warn("⚠️ Payment not found for Razorpay Order:", razorpayOrderId);
+    return res
+      .status(404)
+      .json({ success: false, message: "Payment not found" });
+  }
+
+  // 🔁 Map Razorpay → internal enum
+  let mappedStatus = paymentStatusEnum.PENDING;
+  if (paymentStatus === "captured") mappedStatus = paymentStatusEnum.SUCCESS;
+  else if (paymentStatus === "failed") mappedStatus = paymentStatusEnum.FAILED;
+  else if (paymentStatus === "refunded")
+    mappedStatus = paymentStatusEnum.REFUNDED;
+
+  // ✅ Update Payment
+  payment.status = mappedStatus;
+  payment.razorpayPaymentId = razorpayPaymentId;
+  await payment.save();
+
+  // ✅ Update linked Order (by orderId or fallback by transactionId)
+  let order = null;
+  if (payment.orderId) {
+    order = await Order.findById(payment.orderId);
+  } else {
+    order = await Order.findOne({ transactionId: razorpayPaymentId });
+  }
+
+  if (order) {
+    order.paymentStatus = mappedStatus;
+    await order.save();
+    console.log(`✅ Order ${order._id} payment → ${mappedStatus}`);
+  } else {
+    console.log("ℹ️ No order linked to this payment yet");
+  }
+
+  console.log(`✅ Razorpay Webhook processed: ${mappedStatus}`);
+  return res.status(200).json({ success: true });
+});
+
 export {
   createOrder,
   getMyOrders,
@@ -395,4 +588,7 @@ export {
   verifyRazorpayPayment,
   trackOrder,
   syncOrderFromCourier,
+  retryShipment,
+  delhiveryWebhook,
+  razorpayWebhook,
 };

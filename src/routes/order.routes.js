@@ -16,6 +16,9 @@ import {
   verifyRazorpayPayment,
   trackOrder,
   syncOrderFromCourier,
+  delhiveryWebhook,
+  razorpayWebhook,
+  retryShipment,
 } from "../controllers/order.controller.js";
 import {
   isLoggedIn,
@@ -63,5 +66,20 @@ router
 router
   .route("/:orderId/sync-shipment")
   .post(isLoggedIn, isAdmin, syncOrderFromCourier);
+
+router
+  .route("/:orderId/retry-shipment")
+  .post(isLoggedIn, isAdmin, retryShipment);
+
+// 🔔 Webhooks (public, no auth)
+router.route("/webhook/delhivery").post(
+  express.json({ type: "*/*" }), // Delhivery: normal JSON
+  delhiveryWebhook
+);
+
+router.route("/webhook/razorpay").post(
+  express.raw({ type: "application/json" }), // Razorpay: RAW body required
+  razorpayWebhook
+);
 
 export default router;
