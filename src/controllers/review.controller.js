@@ -5,11 +5,14 @@ import { ApiError } from "../utils/ApiError.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import imagekit from "../utils/imagekit.js";
 import { v4 as uuidv4 } from "uuid";
+import mongoose from "mongoose";
 
 // ✅ Helper: recalc product rating after any review change
 const updateProductRating = async (productId) => {
+  const objectId = new mongoose.Types.ObjectId(productId); // convert string to ObjectId
+
   const stats = await Review.aggregate([
-    { $match: { product: productId } },
+    { $match: { product: objectId } },
     {
       $group: {
         _id: "$product",
@@ -61,12 +64,19 @@ export const addReview = asyncHandler(async (req, res) => {
     text,
     images: uploadedImages,
   });
-
   await updateProductRating(productId);
+  const updatedProduct = await Product.findById(productId);
   const populatedReview = await review.populate("user", "name email");
+
   res
     .status(201)
-    .json(new ApiResponse(201, populatedReview, "Review added successfully"));
+    .json(
+      new ApiResponse(
+        201,
+        { review: populatedReview, product: updatedProduct },
+        "Review added successfully"
+      )
+    );
 });
 
 // UPDATE an existing Review
@@ -103,10 +113,18 @@ export const updateReview = asyncHandler(async (req, res) => {
   await review.save();
 
   await updateProductRating(productId);
+  const updatedProduct = await Product.findById(productId);
   const populatedReview = await review.populate("user", "name email");
+
   res
     .status(200)
-    .json(new ApiResponse(200, populatedReview, "Review updated successfully"));
+    .json(
+      new ApiResponse(
+        200,
+        { review: populatedReview, product: updatedProduct },
+        "Review updated successfully"
+      )
+    );
 });
 
 // ✅ Get all reviews for a product
