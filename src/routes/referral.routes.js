@@ -9,7 +9,7 @@ import { isLoggedIn, isAdmin } from "../middleware/auth.middleware.js";
 import {
   createReferralSchema,
   validateReferralSchema,
-} from "../validators/referral.Schema.js";
+} from "../validators/referral.schema.js";
 
 const router = express.Router();
 

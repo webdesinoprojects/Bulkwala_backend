@@ -1,7 +1,7 @@
-import asyncHandler from "../utils/asyncHandler.js";
+import {asyncHandler} from "../utils/asyncHandler.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import { ApiError } from "../utils/ApiError.js";
-import Referral from "../models/Referral.model.js";
+import Referral from "../models/referral.model.js";
 
 /** ----------------- ADMIN: Create Referral ----------------- */
 export const createReferral = asyncHandler(async (req, res) => {

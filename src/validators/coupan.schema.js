@@ -22,12 +22,12 @@ export const createCouponSchema = z.object({
     }),
   minOrderValue: z
     .number()
-    .optional()
-    .min(0, { message: "Minimum order value cannot be negative" }),
+    .min(0, { message: "Minimum order value cannot be negative" })
+    .optional(),
   usageLimit: z
     .number()
-    .optional()
-    .min(1, { message: "Usage limit must be at least 1" }),
+    .min(1, { message: "Usage limit must be at least 1" })
+    .optional(),
 });
 
 // ✅ User: Validate Coupon during checkout

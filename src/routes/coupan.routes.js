@@ -3,13 +3,13 @@ import {
   createCoupon,
   getAllCoupons,
   validateCoupon,
-} from "../controllers/coupon.controller.js";
+} from "../controllers/coupan.controller.js";
 import { validateData } from "../middleware/validate.js";
 import { isLoggedIn, isAdmin } from "../middleware/auth.middleware.js";
 import {
   createCouponSchema,
   validateCouponSchema,
-} from "../validators/coupon.Schema.js";
+} from "../validators/coupan.schema.js";
 
 const router = express.Router();
 

@@ -1,7 +1,7 @@
-import asyncHandler from "../utils/asyncHandler.js";
+import { asyncHandler } from "../utils/asyncHandler.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import { ApiError } from "../utils/ApiError.js";
-import Offer from "../models/Offer.model.js";
+import Offer from "../models/offer.model.js";
 
 /** ----------------- ADMIN: Start 15-Min Flash Offer ----------------- */
 export const startOffer = asyncHandler(async (req, res) => {
