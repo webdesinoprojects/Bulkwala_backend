@@ -2,7 +2,9 @@ import express from "express";
 import {
   uploadBanner,
   getActiveBanners,
-  deactivateBanner,
+  toggleBanner,
+  getAllBanners,
+  deleteBanner,
 } from "../controllers/banner.controller.js";
 import { validateData } from "../middleware/validate.js";
 import { isLoggedIn, isAdmin } from "../middleware/auth.middleware.js";
@@ -22,7 +24,8 @@ router
   );
 
 router.route("/active").get(getActiveBanners);
-
-router.route("/:id/deactivate").put(isLoggedIn, isAdmin, deactivateBanner);
+router.route("/:id").put(isLoggedIn, isAdmin, toggleBanner);
+router.route("/").get(isLoggedIn, isAdmin, getAllBanners);
+router.route("/:id").delete(isLoggedIn, isAdmin, deleteBanner);
 
 export default router;

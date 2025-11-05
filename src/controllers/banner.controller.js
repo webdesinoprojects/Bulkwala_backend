@@ -56,19 +56,41 @@ export const getActiveBanners = asyncHandler(async (req, res) => {
     .json(new ApiResponse(200, banners, "Active banners fetched"));
 });
 
-/** ----------------- ADMIN: Deactivate Banner ----------------- */
-export const deactivateBanner = asyncHandler(async (req, res) => {
+/** ----------------- ADMIN: Get All Banners ----------------- */
+export const getAllBanners = asyncHandler(async (req, res) => {
+  const banners = await Banner.find().sort({ createdAt: -1 });
+  return res
+    .status(200)
+    .json(new ApiResponse(200, banners, "All banners fetched successfully"));
+});
+
+/** ----------------- ADMIN: Toggle Banner Active Status ----------------- */
+export const toggleBanner = asyncHandler(async (req, res) => {
   const { id } = req.params;
 
-  const banner = await Banner.findByIdAndUpdate(
-    id,
-    { isActive: false },
-    { new: true }
-  );
+  const banner = await Banner.findById(id);
+  if (!banner) throw new ApiError(404, "Banner not found");
+
+  banner.isActive = !banner.isActive; // toggle
+  await banner.save();
+
+  const message = banner.isActive
+    ? "Banner activated successfully"
+    : "Banner deactivated successfully";
+
+  return res.status(200).json(new ApiResponse(200, banner, message));
+});
+
+/** ----------------- ADMIN: Hard Delete Banner ----------------- */
+export const deleteBanner = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+
+  // Find and remove the banner from the DB
+  const banner = await Banner.findByIdAndDelete(id);
 
   if (!banner) throw new ApiError(404, "Banner not found");
 
   return res
     .status(200)
-    .json(new ApiResponse(200, banner, "Banner deactivated successfully"));
+    .json(new ApiResponse(200, null, "Banner deleted successfully"));
 });
