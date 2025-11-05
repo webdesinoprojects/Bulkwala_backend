@@ -5,6 +5,8 @@ import {
   removeFromCart,
   updateCartItem,
   clearCart,
+  removeCoupon,
+  applyCoupon,
 } from "../controllers/cart.controller.js";
 import { isLoggedIn } from "../middleware/auth.middleware.js";
 import { validateData } from "../middleware/validate.js";
@@ -12,6 +14,7 @@ import {
   addToCartSchema,
   updateCartItemSchema,
 } from "../validators/cart.schema.js";
+import { validateCouponSchema } from "../validators/coupon.schema.js";
 
 const router = express.Router();
 router.route("/").post(isLoggedIn, validateData(addToCartSchema), addToCart);
@@ -21,5 +24,11 @@ router.route("/remove/:productId").delete(isLoggedIn, removeFromCart);
 router
   .route("/")
   .put(isLoggedIn, validateData(updateCartItemSchema), updateCartItem);
+
+router
+  .route("/apply-coupon")
+  .post(isLoggedIn, validateData(validateCouponSchema), applyCoupon);
+
+router.route("/remove-coupon").post(isLoggedIn, removeCoupon);
 
 export default router;
