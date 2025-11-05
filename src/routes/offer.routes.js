@@ -1,11 +1,8 @@
 import express from "express";
-import {
-  startOffer,
-  getActiveOffer,
-} from "../controllers/offer.controller.js";
+import { startOffer, getActiveOffer } from "../controllers/offer.controller.js";
 import { validateData } from "../middleware/validate.js";
 import { isLoggedIn, isAdmin } from "../middleware/auth.middleware.js";
-import { startOfferSchema } from "../validators/offer.Schema.js";
+import { startOfferSchema } from "../validators/offer.schema.js";
 
 const router = express.Router();
 

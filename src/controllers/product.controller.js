@@ -172,20 +172,18 @@ const getProducts = asyncHandler(async (req, res) => {
         filter.subcategory = sub._id;
       } else {
         // no subcategory match found — return empty response
-        return res
-          .status(200)
-          .json(
-            new ApiResponse(
-              200,
-              {
-                products: [],
-                total: 0,
-                page: Number(page),
-                limit: Number(limit),
-              },
-              "No products found for given subcategory"
-            )
-          );
+        return res.status(200).json(
+          new ApiResponse(
+            200,
+            {
+              products: [],
+              total: 0,
+              page: Number(page),
+              limit: Number(limit),
+            },
+            "No products found for given subcategory"
+          )
+        );
       }
     }
   }
@@ -365,6 +363,11 @@ const updateProduct = asyncHandler(async (req, res) => {
   allowedFields.forEach((field) => {
     if (updates[field] !== undefined) product[field] = updates[field];
   });
+
+  // ✅ Ensure createdBy is always set (prevents validation error)
+  if (!product.createdBy) {
+    product.createdBy = req.user._id;
+  }
 
   await product.save();
 
