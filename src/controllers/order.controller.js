@@ -59,6 +59,7 @@ const createOrder = asyncHandler(async (req, res) => {
       taxPrice,
       totalPrice,
       paymentStatus: paymentStatusEnum.PENDING,
+      status: orderStatusEnum.PROCESSING,
     });
 
     const shipmentData = await createShipment(order);
@@ -169,6 +170,7 @@ const verifyRazorpayPayment = asyncHandler(async (req, res) => {
     totalPrice: payment.amount,
     paymentStatus: paymentStatusEnum.SUCCESS,
     transactionId: razorpay_payment_id,
+    status: orderStatusEnum.PROCESSING,
   });
   // ✅ Link payment → order
   payment.orderId = order._id;
@@ -308,10 +310,46 @@ const cancelOrder = asyncHandler(async (req, res) => {
     throw new ApiError(400, "Cannot cancel a delivered order");
   }
 
-  // Update status and restore stock
+  // ❌ Already cancelled → cannot cancel again
+  if (order.status === orderStatusEnum.CANCELLED) {
+    throw new ApiError(400, "Order already cancelled");
+  }
+
+  // ❌ Already shipped → cannot cancel after pickup
+  const nonCancellableShipmentStates = [
+    "in transit",
+    "out for delivery",
+    "ofd",
+    "picked up",
+    "dispatched",
+  ];
+
+  if (
+    order.status === orderStatusEnum.SHIPPED ||
+    (order.shipmentStatus &&
+      nonCancellableShipmentStates.some((state) =>
+        order.shipmentStatus.toLowerCase().includes(state)
+      ))
+  ) {
+    throw new ApiError(
+      400,
+      "Cannot cancel — order has already been shipped or handed over to courier"
+    );
+  }
+
+  // ✅ Allow cancellation only if still in Processing
+  if (order.status !== orderStatusEnum.PROCESSING) {
+    throw new ApiError(
+      400,
+      "Cannot cancel — only processing orders can be cancelled"
+    );
+  }
+
+  // ✅ Perform cancellation
   order.status = orderStatusEnum.CANCELLED;
   order.cancelledAt = Date.now();
 
+  // ✅ Restore stock for each item
   for (const item of order.products) {
     await Product.findByIdAndUpdate(item.product, {
       $inc: { stock: item.quantity },
