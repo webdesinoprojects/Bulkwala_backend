@@ -14,7 +14,7 @@ export const startOffer = asyncHandler(async (req, res) => {
       isActive: true,
       discountPercent,
       startedAt: Date.now(),
-      expiresAt: new Date(Date.now() + 15 * 60 * 1000),
+      expiresAt: new Date(Date.now() + 1 * 60 * 1000),
     },
     { upsert: true, new: true }
   );
@@ -36,4 +36,10 @@ export const getActiveOffer = asyncHandler(async (req, res) => {
   }
 
   return res.json(new ApiResponse(200, offer, "Active offer"));
+});
+
+/** ----------------- ADMIN: Delete Offer ----------------- */
+export const deleteOffer = asyncHandler(async (req, res) => {
+  await Offer.deleteMany({});
+  return res.json(new ApiResponse(200, {}, "Offer deleted successfully"));
 });

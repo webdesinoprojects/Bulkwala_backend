@@ -4,6 +4,7 @@ import { asyncHandler } from "../utils/asyncHandler.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import { ApiError } from "../utils/ApiError.js";
 import Coupon from "../models/coupon.model.js";
+import Offer from "../models/offer.model.js";
 
 const addToCart = asyncHandler(async (req, res) => {
   const userId = req.user._id;
@@ -33,10 +34,14 @@ const addToCart = asyncHandler(async (req, res) => {
 
   if (cart.coupon) {
     const coupon = await Coupon.findById(cart.coupon);
-    const newTotal = cart.items.reduce(
-      (acc, item) => acc + item.product.price * item.quantity,
-      0
-    );
+    const productIds = cart.items.map((i) => i.product);
+    const products = await Product.find({ _id: { $in: productIds } });
+    const newTotal = cart.items.reduce((acc, item) => {
+      const prod = products.find(
+        (p) => p._id.toString() === item.product.toString()
+      );
+      return acc + (prod?.price || 0) * item.quantity;
+    }, 0);
 
     if (newTotal < coupon.minOrderValue) {
       cart.coupon = null;
@@ -87,6 +92,20 @@ const getCart = asyncHandler(async (req, res) => {
     couponCode = appliedCoupon ? appliedCoupon.code : "";
   }
 
+  // ✅ Check active flash offer
+  const activeOffer = await Offer.findOne({ isActive: true });
+
+  let flashDiscount = 0;
+  let flashDiscountPercent = 0;
+
+  if (cart.coupon) {
+    console.log("Coupon applied — skipping flash offer");
+  } else if (activeOffer && activeOffer.expiresAt > Date.now()) {
+    flashDiscountPercent = activeOffer.discountPercent;
+    flashDiscount = (totalPrice * flashDiscountPercent) / 100;
+    totalPrice -= flashDiscount;
+  }
+
   const cartData = {
     ...cart.toObject(),
     itemsPrice,
@@ -95,6 +114,8 @@ const getCart = asyncHandler(async (req, res) => {
     totalPrice,
     totalItems,
     discount: cart.discount || 0,
+    flashDiscount,
+    flashDiscountPercent,
     couponApplied,
     couponCode,
   };
