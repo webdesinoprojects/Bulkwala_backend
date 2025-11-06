@@ -30,6 +30,16 @@ const cartSchema = new mongoose.Schema(
       type: Number,
       default: 0,
     },
+    // 🎯 Referral fields (new)
+    referralCode: {
+      type: String,
+      default: null,
+      trim: true,
+    },
+    referralDiscount: {
+      type: Number,
+      default: 0,
+    },
   },
   { timestamps: true }
 );

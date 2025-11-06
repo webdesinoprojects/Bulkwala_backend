@@ -5,6 +5,7 @@ import { ApiResponse } from "../utils/ApiResponse.js";
 import { ApiError } from "../utils/ApiError.js";
 import Coupon from "../models/coupon.model.js";
 import Offer from "../models/offer.model.js";
+import Referral from "../models/referral.model.js";
 
 const addToCart = asyncHandler(async (req, res) => {
   const userId = req.user._id;
@@ -92,15 +93,26 @@ const getCart = asyncHandler(async (req, res) => {
     couponCode = appliedCoupon ? appliedCoupon.code : "";
   }
 
+  // ✅ Apply referral discount if present
+  if (cart.referralDiscount > 0) {
+    totalPrice -= cart.referralDiscount;
+    if (totalPrice < 0) totalPrice = 0;
+  }
+
   // ✅ Check active flash offer
   const activeOffer = await Offer.findOne({ isActive: true });
-
   let flashDiscount = 0;
   let flashDiscountPercent = 0;
 
+  // 🔒 Ensure only one offer type applies at a time
   if (cart.coupon) {
-    console.log("Coupon applied — skipping flash offer");
+    console.log("Coupon applied — skipping referral and flash offer");
+    cart.referralCode = null;
+    cart.referralDiscount = 0;
+  } else if (cart.referralCode) {
+    console.log("Referral applied — skipping coupon and flash offer");
   } else if (activeOffer && activeOffer.expiresAt > Date.now()) {
+    console.log("Flash offer active — applying flash discount only");
     flashDiscountPercent = activeOffer.discountPercent;
     flashDiscount = (totalPrice * flashDiscountPercent) / 100;
     totalPrice -= flashDiscount;
@@ -118,6 +130,8 @@ const getCart = asyncHandler(async (req, res) => {
     flashDiscountPercent,
     couponApplied,
     couponCode,
+    referralCode: cart.referralCode,
+    referralDiscount: cart.referralDiscount,
   };
 
   // Optional: Log cart data (for debugging purposes)
@@ -193,8 +207,18 @@ const applyCoupon = asyncHandler(async (req, res) => {
   const { couponCode } = req.body;
 
   const cart = await Cart.findOne({ user: userId }).populate("items.product");
+
   if (!cart || cart.items.length === 0)
     throw new ApiError(404, "Your cart is empty");
+
+  if (cart.referralCode) {
+    throw new ApiError(400, "Remove referral before applying a coupon");
+  }
+
+  const activeOffer = await Offer.findOne({ isActive: true });
+  if (activeOffer && activeOffer.expiresAt > Date.now()) {
+    throw new ApiError(400, "Cannot apply coupon during active flash offer");
+  }
 
   const coupon = await Coupon.findOne({ code: couponCode?.toUpperCase() });
   if (!coupon) throw new ApiError(400, "Invalid coupon code");
@@ -256,6 +280,79 @@ const removeCoupon = asyncHandler(async (req, res) => {
     .json(new ApiResponse(200, cart, "Coupon removed successfully"));
 });
 
+const applyReferral = asyncHandler(async (req, res) => {
+  const userId = req.user._id;
+  const { referralCode } = req.body;
+
+  const cart = await Cart.findOne({ user: userId }).populate("items.product");
+
+  if (!cart || cart.items.length === 0)
+    throw new ApiError(404, "Your cart is empty");
+
+  if (cart.coupon) {
+    throw new ApiError(400, "Remove coupon before applying a referral");
+  }
+
+  const activeOffer = await Offer.findOne({ isActive: true });
+  if (activeOffer && activeOffer.expiresAt > Date.now()) {
+    throw new ApiError(400, "Cannot apply referral during active flash offer");
+  }
+
+  const referral = await Referral.findOne({
+    code: referralCode?.toUpperCase(),
+  });
+  if (!referral) throw new ApiError(400, "Invalid referral code");
+
+  // Calculate current total
+  const itemsPrice = cart.items.reduce(
+    (acc, item) => acc + item.product.price * item.quantity,
+    0
+  );
+  const shippingPrice = itemsPrice > 1000 ? 0 : 50;
+  const taxPrice = itemsPrice * 0.18;
+  const total = itemsPrice + shippingPrice + taxPrice;
+
+  // Calculate discount from referral
+  const discount = (total * referral.discountPercent) / 100;
+
+  // Update cart
+  cart.referralCode = referral.code;
+  cart.referralDiscount = discount;
+  await cart.save();
+
+  // Track usage
+  if (!referral.usedBy.includes(userId)) {
+    referral.usedBy.push(userId);
+    referral.usageCount += 1;
+    await referral.save();
+  }
+
+  return res.status(200).json(
+    new ApiResponse(200, {
+      success: true,
+      message: "Referral applied successfully",
+      referral: referral.code,
+      discount,
+      totalAfterDiscount: total - discount,
+      cart,
+    })
+  );
+});
+
+const removeReferral = asyncHandler(async (req, res) => {
+  const userId = req.user._id;
+  const cart = await Cart.findOne({ user: userId });
+  if (!cart) throw new ApiError(404, "Cart not found");
+
+  cart.referralCode = null;
+  cart.referralDiscount = 0;
+  await cart.save();
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, cart, "Referral removed successfully"));
+});
+
 export {
   addToCart,
   getCart,
@@ -264,4 +361,6 @@ export {
   clearCart,
   applyCoupon,
   removeCoupon,
+  applyReferral,
+  removeReferral,
 };

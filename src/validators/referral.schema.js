@@ -1,11 +1,9 @@
 import { z } from "zod";
 
-// ✅ Admin: Create Referral Code
 export const createReferralSchema = z.object({
-  influencerId: z
-    .string({ required_error: "Influencer ID is required" })
-    .trim()
-    .min(1, { message: "Influencer ID cannot be empty" }),
+  influencerEmail: z
+    .string({ required_error: "Influencer email is required" })
+    .email({ message: "Please enter a valid email address" }),
   code: z
     .string({ required_error: "Referral code is required" })
     .trim()
@@ -19,11 +17,8 @@ export const createReferralSchema = z.object({
 
 // ✅ User: Validate Referral during checkout
 export const validateReferralSchema = z.object({
-  code: z
+  referralCode: z
     .string({ required_error: "Referral code is required" })
     .trim()
     .min(2, { message: "Invalid referral code" }),
-  total: z
-    .number({ required_error: "Cart total is required" })
-    .min(1, { message: "Total must be greater than 0" }),
 });

@@ -7,6 +7,8 @@ import {
   clearCart,
   removeCoupon,
   applyCoupon,
+  applyReferral,
+  removeReferral,
 } from "../controllers/cart.controller.js";
 import { isLoggedIn } from "../middleware/auth.middleware.js";
 import { validateData } from "../middleware/validate.js";
@@ -15,6 +17,7 @@ import {
   updateCartItemSchema,
 } from "../validators/cart.schema.js";
 import { validateCouponSchema } from "../validators/coupon.schema.js";
+import { validateReferralSchema } from "../validators/referral.schema.js";
 
 const router = express.Router();
 router.route("/").post(isLoggedIn, validateData(addToCartSchema), addToCart);
@@ -30,5 +33,8 @@ router
   .post(isLoggedIn, validateData(validateCouponSchema), applyCoupon);
 
 router.route("/remove-coupon").post(isLoggedIn, removeCoupon);
-
+router
+  .route("/apply-referral")
+  .post(isLoggedIn, validateData(validateReferralSchema), applyReferral);
+router.route("/remove-referral").post(isLoggedIn, removeReferral);
 export default router;

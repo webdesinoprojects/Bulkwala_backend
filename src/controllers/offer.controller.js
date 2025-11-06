@@ -14,7 +14,7 @@ export const startOffer = asyncHandler(async (req, res) => {
       isActive: true,
       discountPercent,
       startedAt: Date.now(),
-      expiresAt: new Date(Date.now() + 1 * 60 * 1000),
+      expiresAt: new Date(Date.now() + 15 * 60 * 1000),
     },
     { upsert: true, new: true }
   );
