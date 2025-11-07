@@ -17,6 +17,8 @@ import {
   getAllUsers,
   updateAddress,
   registerSellerDirect,
+  sendOtpLogin,
+  verifyOtpLogin,
 } from "../controllers/user.controller.js";
 import { validateData } from "../middleware/validate.js";
 import {
@@ -35,6 +37,9 @@ import { isAdmin, isLoggedIn } from "../middleware/auth.middleware.js";
 const router = express.Router();
 
 router.route("/register").post(validateData(createuserSchema), registerUser);
+router.route("/send-otp").post(sendOtpLogin);
+router.route("/verify-otp").post(verifyOtpLogin);
+
 router
   .route("/register-seller")
   .post(validateData(sellerRegistrationSchema), registerSellerDirect);

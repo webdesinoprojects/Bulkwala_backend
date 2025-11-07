@@ -66,6 +66,8 @@ const userSchema = new Schema(
     resetPasswordExpiresAt: Date,
     verificationToken: String,
     verificationTokenExpiresAt: Date,
+    otpCode: { type: String },
+    otpExpiresAt: { type: Date },
 
     sellerDetails: {
       businessName: String,

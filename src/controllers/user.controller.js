@@ -9,6 +9,7 @@ import {
   sendVerificationEmail,
 } from "../utils/email.js";
 import ms from "ms";
+import { sendOtpSms } from "../utils/sms.js";
 
 const getAllUsers = asyncHandler(async (req, res) => {
   const users = await User.find()
@@ -130,6 +131,52 @@ const loginUser = asyncHandler(async (req, res) => {
     .cookie("accessToken", accessToken, cookieOptions)
     .cookie("refreshToken", refreshToken, cookieOptions)
     .json(new ApiResponse(200, user, "User logged in successfully"));
+});
+
+const sendOtpLogin = asyncHandler(async (req, res) => {
+  const { phone } = req.body;
+  if (!phone) throw new ApiError(400, "Phone number is required");
+
+  const user = await User.findOne({ phone });
+  if (!user) {
+    throw new ApiError(404, "No account found with this mobile number");
+  }
+
+  const otp = Math.floor(100000 + Math.random() * 900000).toString();
+  user.otpCode = otp;
+  user.otpExpiresAt = new Date(Date.now() + 5 * 60 * 1000); // valid 5 min
+  await user.save({ validateBeforeSave: false });
+
+  await sendOtpSms(phone, otp);
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, null, "OTP sent successfully"));
+});
+
+const verifyOtpLogin = asyncHandler(async (req, res) => {
+  const { phone, otp } = req.body;
+  if (!phone || !otp)
+    throw new ApiError(400, "Phone number and OTP are required");
+
+  const user = await User.findOne({ phone });
+  if (!user) throw new ApiError(404, "User not found");
+
+  if (user.otpCode !== otp || user.otpExpiresAt < new Date()) {
+    throw new ApiError(400, "Invalid or expired OTP");
+  }
+
+  user.otpCode = undefined;
+  user.otpExpiresAt = undefined;
+  await user.save({ validateBeforeSave: false });
+
+  const { accessToken, refreshToken } = user.generateJWT();
+
+  return res
+    .status(200)
+    .cookie("accessToken", accessToken, cookieOptions)
+    .cookie("refreshToken", refreshToken, cookieOptions)
+    .json(new ApiResponse(200, user, "Login successful via OTP"));
 });
 
 const updateUser = asyncHandler(async (req, res) => {
@@ -462,4 +509,6 @@ export {
   getPendingSellers,
   approveSeller,
   rejectSeller,
+  sendOtpLogin,
+  verifyOtpLogin,
 };

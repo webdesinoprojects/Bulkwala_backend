@@ -17,9 +17,10 @@ export const createuserSchema = z.object({
     .regex(/[0-9]/, "Password must contain at least one number")
     .regex(/[\W_]/, "Password must contain at least one special character"),
 
-  phone: z.number().optional(),
-
-  role: z.string().trim().optional(),
+  phone: z
+    .string()
+    .regex(/^[0-9]{10}$/, "Phone number must be 10 digits")
+    .optional(),
 });
 
 export const updateuserSchema = z.object({
