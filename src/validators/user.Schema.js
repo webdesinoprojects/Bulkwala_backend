@@ -98,3 +98,58 @@ export const sellerApplicationSchema = z.object({
       message: "Invalid IFSC code format",
     }),
 });
+
+export const sellerRegistrationSchema = z.object({
+  name: z.string().trim().min(1, { message: "Name is required" }),
+
+  email: z
+    .string()
+    .trim()
+    .email({ message: "Invalid email format" })
+    .toLowerCase(),
+
+  password: z
+    .string()
+    .min(6, { message: "Password must be at least 6 characters long" })
+    .regex(/[A-Z]/, "Password must contain at least one uppercase letter")
+    .regex(/[a-z]/, "Password must contain at least one lowercase letter")
+    .regex(/[0-9]/, "Password must contain at least one number")
+    .regex(/[\W_]/, "Password must contain at least one special character"),
+
+  phone: z
+    .string()
+    .regex(/^[0-9]{10}$/, "Phone number must be 10 digits")
+    .optional(),
+
+  businessName: z
+    .string()
+    .trim()
+    .min(2, { message: "Business name is required" }),
+
+  gstNumber: z
+    .string()
+    .trim()
+    .optional()
+    .refine((val) => !val || /^[0-9A-Z]{15}$/.test(val), {
+      message: "Invalid GST number format",
+    }),
+
+  pickupAddress: z
+    .string()
+    .trim()
+    .min(5, { message: "Pickup address is required" }),
+
+  bankName: z.string().trim().min(2, { message: "Bank name is required" }),
+
+  accountNumber: z
+    .string()
+    .trim()
+    .min(6, { message: "Account number is required" }),
+
+  ifsc: z
+    .string()
+    .trim()
+    .refine((val) => /^[A-Z]{4}0[A-Z0-9]{6}$/.test(val), {
+      message: "Invalid IFSC code format",
+    }),
+});

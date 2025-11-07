@@ -16,6 +16,7 @@ import {
   rejectSeller,
   getAllUsers,
   updateAddress,
+  registerSellerDirect,
 } from "../controllers/user.controller.js";
 import { validateData } from "../middleware/validate.js";
 import {
@@ -27,12 +28,17 @@ import {
   changePasswordSchema,
   sellerApplicationSchema,
   updateaddressSchema,
+  sellerRegistrationSchema,
 } from "../validators/user.Schema.js";
 import { isAdmin, isLoggedIn } from "../middleware/auth.middleware.js";
 
 const router = express.Router();
 
 router.route("/register").post(validateData(createuserSchema), registerUser);
+router
+  .route("/register-seller")
+  .post(validateData(sellerRegistrationSchema), registerSellerDirect);
+
 router.route("/login").post(validateData(loginuserSchema), loginUser);
 router
   .route("/update")

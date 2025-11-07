@@ -10,7 +10,6 @@ import {
 } from "../utils/email.js";
 import ms from "ms";
 
-// Get all users (Admin only)
 const getAllUsers = asyncHandler(async (req, res) => {
   const users = await User.find()
     .select("-password -resetPasswordToken -refreshToken")
@@ -50,6 +49,63 @@ const registerUser = asyncHandler(async (req, res) => {
   return res
     .status(201)
     .json(new ApiResponse(201, user, "User register Please verify your email"));
+});
+
+const registerSellerDirect = asyncHandler(async (req, res) => {
+  const {
+    name,
+    email,
+    password,
+    phone,
+    businessName,
+    gstNumber,
+    pickupAddress,
+    bankName,
+    accountNumber,
+    ifsc,
+  } = req.body;
+
+  const existingUser = await User.findOne({ email });
+  if (existingUser) {
+    throw new ApiError(400, "User already exists with this email");
+  }
+
+  const verificationToken = Math.floor(
+    100000 + Math.random() * 900000
+  ).toString();
+  const expiresIn = ms(process.env.VERIFICATION_TOKEN_EXPIRES_IN);
+
+  const user = await User.create({
+    name,
+    email,
+    password,
+    phone,
+    role: "customer", // stays customer until admin approval
+    verificationToken,
+    verificationTokenExpiresAt: new Date(Date.now() + expiresIn),
+    sellerDetails: {
+      businessName,
+      gstNumber,
+      pickupAddress,
+      bankName,
+      accountNumber,
+      ifsc,
+      approved: false,
+    },
+    isVerified: false,
+  });
+
+  await sendVerificationEmail(user.email, verificationToken);
+
+  return res
+    .status(201)
+    .json(
+      new ApiResponse(
+        201,
+        user,
+        "Seller registration submitted. Please verify your email. Admin approval pending after verification."
+      )
+    );
 });
 
 const loginUser = asyncHandler(async (req, res) => {
@@ -342,7 +398,6 @@ const applyForSeller = asyncHandler(async (req, res) => {
     );
 });
 
-// Get all pending seller applications
 const getPendingSellers = asyncHandler(async (_req, res) => {
   const pending = await User.find({
     "sellerDetails.approved": false,
@@ -355,7 +410,6 @@ const getPendingSellers = asyncHandler(async (_req, res) => {
     .json(new ApiResponse(200, pending, "Pending seller applications fetched"));
 });
 
-//  Approve seller
 const approveSeller = asyncHandler(async (req, res) => {
   const { userid } = req.params;
   const user = await User.findById(userid);
@@ -393,6 +447,7 @@ const rejectSeller = asyncHandler(async (req, res) => {
 export {
   getAllUsers,
   registerUser,
+  registerSellerDirect,
   loginUser,
   updateUser,
   getuserProfile,
