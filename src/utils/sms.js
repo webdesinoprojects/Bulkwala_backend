@@ -1,32 +1,42 @@
-import axios from "axios";
+import Twilio from "twilio";
 import dotenv from "dotenv";
 dotenv.config();
 
-export const sendOtpSms = async (phone, otp) => {
+const client = Twilio(
+  process.env.TWILIO_ACCOUNT_SID,
+  process.env.TWILIO_AUTH_TOKEN
+);
+
+export const sendOtpSms = async (phone) => {
   try {
-    const response = await axios.post(
-      "https://www.fast2sms.com/dev/bulkV2",
-      {
-        route: "otp",
-        variables_values: otp,
-        numbers: phone,
-      },
-      {
-        headers: {
-          authorization: process.env.FAST2SMS_API_KEY,
-          "Content-Type": "application/json",
-        },
-      }
-    );
+    const result = await client.verify.v2
+      .services(process.env.TWILIO_VERIFY_SERVICE_SID)
+      .verifications.create({
+        to: `+91${phone}`,
+        channel: "sms",
+      });
 
-    console.log("✅ Fast2SMS response:", response.data);
-    if (!response.data.return) {
-      throw new Error(response.data.message || "Fast2SMS failed");
-    }
-
-    return true;
+    console.log("✅ OTP sent via Twilio:", result.status);
+    return result.status;
   } catch (error) {
-    console.error("❌ Fast2SMS Error:", error.response?.data || error.message);
-    throw new Error("Failed to send OTP via Fast2SMS");
+    console.error("❌ Twilio Verify Send Error:", error);
+    throw new Error("Failed to send OTP via Twilio Verify");
+  }
+};
+
+export const verifyOtpSms = async (phone, otp) => {
+  try {
+    const verificationCheck = await client.verify.v2
+      .services(process.env.TWILIO_VERIFY_SERVICE_SID)
+      .verificationChecks.create({
+        to: `+91${phone}`,
+        code: otp,
+      });
+
+    console.log("✅ Verification Check:", verificationCheck.status);
+    return verificationCheck.status === "approved";
+  } catch (error) {
+    console.error("❌ Twilio Verify Check Error:", error);
+    throw new Error("Failed to verify OTP via Twilio Verify");
   }
 };

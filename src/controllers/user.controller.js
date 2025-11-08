@@ -9,7 +9,7 @@ import {
   sendVerificationEmail,
 } from "../utils/email.js";
 import ms from "ms";
-import { sendOtpSms } from "../utils/sms.js";
+import { sendOtpSms, verifyOtpSms } from "../utils/sms.js";
 
 const getAllUsers = asyncHandler(async (req, res) => {
   const users = await User.find()
@@ -138,20 +138,14 @@ const sendOtpLogin = asyncHandler(async (req, res) => {
   if (!phone) throw new ApiError(400, "Phone number is required");
 
   const user = await User.findOne({ phone });
-  if (!user) {
+  if (!user)
     throw new ApiError(404, "No account found with this mobile number");
-  }
 
-  const otp = Math.floor(100000 + Math.random() * 900000).toString();
-  user.otpCode = otp;
-  user.otpExpiresAt = new Date(Date.now() + 5 * 60 * 1000); // valid 5 min
-  await user.save({ validateBeforeSave: false });
-
-  await sendOtpSms(phone, otp);
+  await sendOtpSms(phone);
 
   return res
     .status(200)
-    .json(new ApiResponse(200, null, "OTP sent successfully"));
+    .json(new ApiResponse(200, null, "OTP sent successfully via Twilio"));
 });
 
 const verifyOtpLogin = asyncHandler(async (req, res) => {
@@ -159,16 +153,11 @@ const verifyOtpLogin = asyncHandler(async (req, res) => {
   if (!phone || !otp)
     throw new ApiError(400, "Phone number and OTP are required");
 
+  const isVerified = await verifyOtpSms(phone, otp);
+  if (!isVerified) throw new ApiError(400, "Invalid or expired OTP");
+
   const user = await User.findOne({ phone });
   if (!user) throw new ApiError(404, "User not found");
-
-  if (user.otpCode !== otp || user.otpExpiresAt < new Date()) {
-    throw new ApiError(400, "Invalid or expired OTP");
-  }
-
-  user.otpCode = undefined;
-  user.otpExpiresAt = undefined;
-  await user.save({ validateBeforeSave: false });
 
   const { accessToken, refreshToken } = user.generateJWT();
 
@@ -268,6 +257,18 @@ const verifyUser = asyncHandler(async (req, res) => {
         "Email verified successfully, you can now log in."
       )
     );
+});
+
+const resendVerifyCode = asyncHandler(async (req, res) => {
+  const { userid } = req.params;
+  const user = await User.findById(userid);
+  if (!user) {
+    throw new ApiError(404, "User not found");
+  }
+  await sendVerificationEmail(user.email, user._id);
+  return res
+    .status(200)
+    .json(new ApiResponse(200, null, "Verification code resent successfully"));
 });
 
 const forgetPassword = asyncHandler(async (req, _res) => {
@@ -500,6 +501,7 @@ export {
   getuserProfile,
   updateAddress,
   verifyUser,
+  resendVerifyCode,
   forgetPassword,
   resetPassword,
   refreshUserToken,
