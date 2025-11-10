@@ -5,14 +5,21 @@ import Offer from "../models/offer.model.js";
 
 /** ----------------- ADMIN: Start 15-Min Flash Offer ----------------- */
 export const startOffer = asyncHandler(async (req, res) => {
-  const { discountPercent } = req.body;
-  if (!discountPercent) throw new ApiError(400, "Discount percent is required");
+  const { discountPercent, maxDiscountAmount } = req.body;
+
+  if (!discountPercent || !maxDiscountAmount) {
+    throw new ApiError(
+      400,
+      "Both discount percent and max discount are required"
+    );
+  }
 
   const offer = await Offer.findOneAndUpdate(
     {},
     {
       isActive: true,
       discountPercent,
+      maxDiscountAmount,
       startedAt: Date.now(),
       expiresAt: new Date(Date.now() + 15 * 60 * 1000),
     },

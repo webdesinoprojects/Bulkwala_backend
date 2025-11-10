@@ -112,16 +112,33 @@ const registerSellerDirect = asyncHandler(async (req, res) => {
 const loginUser = asyncHandler(async (req, res) => {
   const { email, password } = req.body;
 
-  console.log(password);
-
   const user = await User.findOne({ email });
   if (!user) {
     throw new ApiError(400, "User not found");
   }
   const isPassCorrect = await user.isPasswordCorrect(password);
-  console.log(isPassCorrect);
   if (!isPassCorrect) {
     throw new ApiError(400, "Invalid password");
+  }
+
+  // 🔒 Check verification status
+  if (!user.isVerified) {
+    const verificationToken = Math.floor(
+      100000 + Math.random() * 900000
+    ).toString();
+
+    const expiresIn = ms(process.env.VERIFICATION_TOKEN_EXPIRES_IN);
+    user.verificationToken = verificationToken;
+    user.verificationTokenExpiresAt = new Date(Date.now() + expiresIn);
+    await user.save({ validateBeforeSave: false });
+
+    await sendVerificationEmail(user.email, verificationToken);
+
+    return res.status(403).json({
+      message:
+        "Please verify your email first. A new verification code has been sent.",
+      data: { _id: user._id, email: user.email },
+    });
   }
 
   const { accessToken, refreshToken } = user.generateJWT();
@@ -265,10 +282,22 @@ const resendVerifyCode = asyncHandler(async (req, res) => {
   if (!user) {
     throw new ApiError(404, "User not found");
   }
-  await sendVerificationEmail(user.email, user._id);
+  const verificationToken = Math.floor(
+    100000 + Math.random() * 900000
+  ).toString();
+
+  const expiresIn = ms(process.env.VERIFICATION_TOKEN_EXPIRES_IN);
+  user.verificationToken = verificationToken;
+  user.verificationTokenExpiresAt = new Date(Date.now() + expiresIn);
+  await user.save({ validateBeforeSave: false });
+
+  await sendVerificationEmail(user.email, verificationToken);
+
   return res
     .status(200)
-    .json(new ApiResponse(200, null, "Verification code resent successfully"));
+    .json(
+      new ApiResponse(200, null, "New verification code sent successfully")
+    );
 });
 
 const forgetPassword = asyncHandler(async (req, _res) => {

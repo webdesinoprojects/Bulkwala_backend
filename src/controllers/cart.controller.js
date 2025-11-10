@@ -113,9 +113,19 @@ const getCart = asyncHandler(async (req, res) => {
     console.log("Referral applied — skipping coupon and flash offer");
   } else if (activeOffer && activeOffer.expiresAt > Date.now()) {
     console.log("Flash offer active — applying flash discount only");
+
     flashDiscountPercent = activeOffer.discountPercent;
-    flashDiscount = (totalPrice * flashDiscountPercent) / 100;
+
+    // ✅ Calculate capped discount (e.g. 90% off up to ₹50)
+    const rawDiscount = (totalPrice * flashDiscountPercent) / 100;
+    flashDiscount = Math.min(
+      rawDiscount,
+      activeOffer.maxDiscountAmount || rawDiscount
+    );
+
     totalPrice -= flashDiscount;
+
+    if (totalPrice < 0) totalPrice = 0;
   }
 
   const cartData = {

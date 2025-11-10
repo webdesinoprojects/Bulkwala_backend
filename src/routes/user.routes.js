@@ -54,7 +54,7 @@ router
   .route("/address")
   .put(isLoggedIn, validateData(updateaddressSchema), updateAddress);
 router.route("/verify/:userid").post(verifyUser);
-router.route("/resend-verification").post(resendVerifyCode);
+router.route("/resend-verification/:userid").post(resendVerifyCode);
 router
   .route("/forget-password")
   .post(validateData(forgetPasswordSchema), forgetPassword);
