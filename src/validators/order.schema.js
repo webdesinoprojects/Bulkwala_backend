@@ -15,20 +15,31 @@ const shippingAddressSchema = z.object({
   country: z.string().default("India"),
 });
 
-export const createOrderSchema = z.object({
-  products: z
-    .array(
-      z.object({
-        product: z.string().min(1, "Product ID is required"),
-        quantity: z.number().min(1, "Quantity must be at least 1"),
-      })
-    )
-    .nonempty("At least one product is required"),
+export const createOrderSchema = z
+  .object({
+    products: z
+      .array(
+        z.object({
+          product: z.string().min(1, "Product ID is required"),
+          quantity: z.number().min(1, "Quantity must be at least 1"),
+        })
+      )
+      .nonempty("At least one product is required"),
 
-  shippingAddress: shippingAddressSchema,
+    shippingAddress: shippingAddressSchema.optional(), // ✅ make optional
 
-  paymentMode: z.enum([...availablePaymentModes]),
-});
+    paymentMode: z.enum([...availablePaymentModes]),
+  })
+  .refine(
+    (data) => {
+      if (data.paymentMode === "pickup") return true; // skip validation
+      return !!data.shippingAddress; // must exist for others
+    },
+    {
+      message: "Shipping address is required for delivery orders",
+      path: ["shippingAddress"],
+    }
+  );
 
 export const updateOrderStatusSchema = z.object({
   status: z.enum([...availableOrderStatus]),

@@ -12,7 +12,6 @@ const paymentSchema = new mongoose.Schema(
       required: true,
     },
 
-    // Order will be created later (only after successful payment)
     orderId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Order",
@@ -29,13 +28,11 @@ const paymentSchema = new mongoose.Schema(
     },
     paymentMode: { type: String, required: true },
 
-    // ✅ Add these fields to fix "itemsPrice is required"
-
     itemsPrice: { type: Number, required: true },
     shippingPrice: { type: Number, required: true },
     taxPrice: { type: Number, required: true },
+    prepaidDiscount: { type: Number, default: 0 },
 
-    // Store cart items before creating order
     products: [
       {
         product: {
@@ -48,7 +45,6 @@ const paymentSchema = new mongoose.Schema(
       },
     ],
 
-    // Temporarily store address before order creation
     shippingAddress: {
       name: String,
       phone: String,

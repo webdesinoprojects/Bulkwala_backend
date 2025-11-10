@@ -35,18 +35,25 @@ const addToCart = asyncHandler(async (req, res) => {
 
   if (cart.coupon) {
     const coupon = await Coupon.findById(cart.coupon);
-    const productIds = cart.items.map((i) => i.product);
-    const products = await Product.find({ _id: { $in: productIds } });
-    const newTotal = cart.items.reduce((acc, item) => {
-      const prod = products.find(
-        (p) => p._id.toString() === item.product.toString()
-      );
-      return acc + (prod?.price || 0) * item.quantity;
-    }, 0);
 
-    if (newTotal < coupon.minOrderValue) {
+    // 🧩 Guard: if coupon was deleted or invalid, reset it
+    if (!coupon) {
       cart.coupon = null;
       cart.discount = 0;
+    } else {
+      const productIds = cart.items.map((i) => i.product);
+      const products = await Product.find({ _id: { $in: productIds } });
+      const newTotal = cart.items.reduce((acc, item) => {
+        const prod = products.find(
+          (p) => p._id.toString() === item.product.toString()
+        );
+        return acc + (prod?.price || 0) * item.quantity;
+      }, 0);
+
+      if (newTotal < coupon.minOrderValue) {
+        cart.coupon = null;
+        cart.discount = 0;
+      }
     }
   }
 

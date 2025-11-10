@@ -15,8 +15,10 @@ const createOrder = asyncHandler(async (req, res) => {
   const { paymentMode, shippingAddress } = req.body;
   const userId = req.user._id;
 
-  if (!shippingAddress || Object.keys(shippingAddress).length === 0) {
-    throw new ApiError(400, "Shipping address is required");
+  if (paymentMode !== "pickup") {
+    if (!shippingAddress || Object.keys(shippingAddress).length === 0) {
+      throw new ApiError(400, "Shipping address is required");
+    }
   }
 
   const cart = await Cart.findOne({ user: userId }).populate(
@@ -34,9 +36,15 @@ const createOrder = asyncHandler(async (req, res) => {
     return acc + price * item.quantity;
   }, 0);
 
-  const shippingPrice = itemsPrice > 1000 ? 0 : 50;
+  let shippingPrice = itemsPrice > 1000 ? 0 : 50;
   const taxPrice = itemsPrice * 0.18;
-  const totalPrice = itemsPrice + shippingPrice + taxPrice;
+  let totalPrice = itemsPrice + shippingPrice + taxPrice;
+
+  // ✅ If pickup, force no shipping
+  if (paymentMode === "pickup") {
+    shippingPrice = 0;
+    totalPrice = itemsPrice + taxPrice;
+  }
 
   // Create the final products array
   const finalProducts = cart.items.map((item) => {
@@ -46,6 +54,44 @@ const createOrder = asyncHandler(async (req, res) => {
 
     return { product, quantity, priceAtPurchase };
   });
+
+  // ↓↓↓ CASE 0 → PICKUP FROM STORE ↓↓↓
+  if (paymentMode === "pickup") {
+    const order = await Order.create({
+      products: finalProducts,
+      user: userId,
+      shippingAddress,
+      paymentMode,
+      itemsPrice,
+      shippingPrice: 0, // no shipping charge
+      taxPrice,
+      totalPrice,
+      paymentStatus: paymentStatusEnum.SUCCESS, // ✅ Mark paid
+      status: orderStatusEnum.DELIVERED, // ✅ Instantly delivered
+      deliveredAt: new Date(),
+    });
+
+    // ✅ Reduce stock
+    for (const item of finalProducts) {
+      await Product.findByIdAndUpdate(item.product, {
+        $inc: { stock: -item.quantity },
+      });
+    }
+
+    // ✅ Clear cart
+    await Cart.findOneAndUpdate({ user: userId }, { $set: { items: [] } });
+
+    const populatedOrder = await Order.findById(order._id).populate(
+      "products.product",
+      "title price"
+    );
+
+    return res
+      .status(201)
+      .json(
+        new ApiResponse(201, populatedOrder, "Pickup order placed successfully")
+      );
+  }
 
   // ↓↓↓ CASE 1 → CASH ON DELIVERY ↓↓↓
   if (paymentMode === "cod") {
@@ -84,18 +130,27 @@ const createOrder = asyncHandler(async (req, res) => {
     // Clear user cart
     await Cart.findOneAndUpdate({ user: userId }, { $set: { items: [] } });
 
+    const populatedOrder = await Order.findById(order._id).populate(
+      "products.product",
+      "title price"
+    );
+
     return res
       .status(201)
       .json(
         new ApiResponse(
           201,
-          order,
+          populatedOrder,
           "COD order placed and shipment created successfully"
         )
       );
   }
 
   // ↓↓↓ CASE 2 → ONLINE / NETBANKING ↓↓↓
+  // ✅ Apply flat ₹30 off for prepaid modes
+  let prepaidDiscount = 30;
+  totalPrice = Math.max(totalPrice - prepaidDiscount, 0);
+
   const options = {
     amount: Math.round(totalPrice * 100),
     currency: "INR",
@@ -116,6 +171,7 @@ const createOrder = asyncHandler(async (req, res) => {
     itemsPrice,
     shippingPrice,
     taxPrice,
+    prepaidDiscount, // ✅ store discount for invoice/record
   });
 
   return res.status(200).json(
@@ -167,6 +223,7 @@ const verifyRazorpayPayment = asyncHandler(async (req, res) => {
     itemsPrice: payment.itemsPrice,
     shippingPrice: payment.shippingPrice,
     taxPrice: payment.taxPrice,
+    prepaidDiscount: payment.prepaidDiscount || 0,
     totalPrice: payment.amount,
     paymentStatus: paymentStatusEnum.SUCCESS,
     transactionId: razorpay_payment_id,

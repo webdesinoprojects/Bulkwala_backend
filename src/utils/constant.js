@@ -20,6 +20,7 @@ export const paymentModeEnum = {
   UPI: "upi",
   CARD: "card",
   ONLINE: "online",
+  PICKUP: "pickup", // ✅ New mode added
 };
 
 export const availablePaymentModes = Object.values(paymentModeEnum);
