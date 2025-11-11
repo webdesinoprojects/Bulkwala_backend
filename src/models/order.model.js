@@ -81,11 +81,13 @@ const orderSchema = new mongoose.Schema(
       min: 0,
       default: 0,
     },
-    prepaidDiscount: {
-      type: Number,
-      default: 0,
-      min: 0,
-    },
+    // ✅ Discount fields
+    couponDiscount: { type: Number, default: 0, min: 0 },
+    referralDiscount: { type: Number, default: 0, min: 0 },
+    flashDiscount: { type: Number, default: 0, min: 0 },
+    flashDiscountPercent: { type: Number, default: 0, min: 0 },
+    prepaidDiscount: { type: Number, default: 0, min: 0 },
+
     totalPrice: {
       type: Number,
       required: true,

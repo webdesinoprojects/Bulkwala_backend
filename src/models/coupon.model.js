@@ -14,8 +14,20 @@ const couponSchema = new mongoose.Schema(
     usageLimit: { type: Number, default: 1 },
     usedCount: { type: Number, default: 0 },
     createdBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+    usedBy: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User",
+      },
+    ],
+    totalSales: {
+      type: Number,
+      default: 0,
+    },
   },
-  { timestamps: true }
+  {
+    timestamps: true,
+  }
 );
 
 const Coupan = mongoose.model("Coupon", couponSchema);

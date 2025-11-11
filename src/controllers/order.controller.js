@@ -10,6 +10,7 @@ import razorpayInstance from "../utils/razorpay.js";
 import Cart from "../models/cart.model.js";
 import { createShipment, trackShipment } from "../utils/delhivery.js";
 import { mapDelhiveryToOrderStatus } from "../utils/delhiveryStatusMap.js";
+import Offer from "../models/offer.model.js";
 
 const createOrder = asyncHandler(async (req, res) => {
   const { paymentMode, shippingAddress } = req.body;
@@ -40,11 +41,39 @@ const createOrder = asyncHandler(async (req, res) => {
   const taxPrice = itemsPrice * 0.18;
   let totalPrice = itemsPrice + shippingPrice + taxPrice;
 
-  // ✅ If pickup, force no shipping
+  // ✅ Collect all active discounts
+  const couponDiscount = cart.discount || 0;
+  const referralDiscount = cart.referralDiscount || 0;
+
+  // ✅ Flash Offer (dynamic)
+  const activeOffer = await Offer.findOne({ isActive: true });
+  let flashDiscount = 0;
+  let flashDiscountPercent = 0;
+  if (activeOffer && activeOffer.expiresAt > Date.now()) {
+    flashDiscountPercent = activeOffer.discountPercent;
+    const rawDiscount = (totalPrice * flashDiscountPercent) / 100;
+    flashDiscount = Math.min(
+      rawDiscount,
+      activeOffer.maxDiscountAmount || rawDiscount
+    );
+  }
+
+  // ✅ Prepaid discount only for online payments
+  const prepaidDiscount = paymentMode === "online" ? 30 : 0;
+
+  // ✅ Combine all discounts
+  const totalDiscount =
+    couponDiscount + referralDiscount + flashDiscount + prepaidDiscount;
+
+  // ✅ If pickup → no shipping
   if (paymentMode === "pickup") {
     shippingPrice = 0;
-    totalPrice = itemsPrice + taxPrice;
   }
+
+  totalPrice = Math.max(
+    itemsPrice + shippingPrice + taxPrice - totalDiscount,
+    0
+  );
 
   // Create the final products array
   const finalProducts = cart.items.map((item) => {
@@ -65,6 +94,11 @@ const createOrder = asyncHandler(async (req, res) => {
       itemsPrice,
       shippingPrice: 0, // no shipping charge
       taxPrice,
+      couponDiscount,
+      referralDiscount,
+      flashDiscount,
+      flashDiscountPercent,
+      prepaidDiscount: 0,
       totalPrice,
       paymentStatus: paymentStatusEnum.SUCCESS, // ✅ Mark paid
       status: orderStatusEnum.DELIVERED, // ✅ Instantly delivered
@@ -103,17 +137,18 @@ const createOrder = asyncHandler(async (req, res) => {
       itemsPrice,
       shippingPrice,
       taxPrice,
+      couponDiscount,
+      referralDiscount,
+      flashDiscount,
+      flashDiscountPercent,
+      prepaidDiscount: 0,
       totalPrice,
       paymentStatus: paymentStatusEnum.PENDING,
       status: orderStatusEnum.PROCESSING,
     });
 
     const shipmentData = await createShipment(order);
-    if (
-      shipmentData &&
-      shipmentData.packages &&
-      shipmentData.packages.length > 0
-    ) {
+    if (shipmentData?.packages?.length > 0) {
       const trackingId = shipmentData.packages[0].waybill;
       order.trackingId = trackingId;
       order.shipmentStatus = "Created";
@@ -147,9 +182,6 @@ const createOrder = asyncHandler(async (req, res) => {
   }
 
   // ↓↓↓ CASE 2 → ONLINE / NETBANKING ↓↓↓
-  // ✅ Apply flat ₹30 off for prepaid modes
-  let prepaidDiscount = 30;
-  totalPrice = Math.max(totalPrice - prepaidDiscount, 0);
 
   const options = {
     amount: Math.round(totalPrice * 100),
@@ -171,7 +203,11 @@ const createOrder = asyncHandler(async (req, res) => {
     itemsPrice,
     shippingPrice,
     taxPrice,
-    prepaidDiscount, // ✅ store discount for invoice/record
+    couponDiscount,
+    referralDiscount,
+    flashDiscount,
+    flashDiscountPercent,
+    prepaidDiscount,
   });
 
   return res.status(200).json(
@@ -223,6 +259,10 @@ const verifyRazorpayPayment = asyncHandler(async (req, res) => {
     itemsPrice: payment.itemsPrice,
     shippingPrice: payment.shippingPrice,
     taxPrice: payment.taxPrice,
+    couponDiscount: payment.couponDiscount || 0,
+    referralDiscount: payment.referralDiscount || 0,
+    flashDiscount: payment.flashDiscount || 0,
+    flashDiscountPercent: payment.flashDiscountPercent || 0,
     prepaidDiscount: payment.prepaidDiscount || 0,
     totalPrice: payment.amount,
     paymentStatus: paymentStatusEnum.SUCCESS,

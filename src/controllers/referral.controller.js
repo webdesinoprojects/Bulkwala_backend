@@ -30,6 +30,24 @@ export const createReferral = asyncHandler(async (req, res) => {
 
 /** ----------------- ADMIN: Get All Referrals ----------------- */
 export const getAllReferrals = asyncHandler(async (req, res) => {
-  const referrals = await Referral.find().populate("influencer", "name email");
-  return res.json(new ApiResponse(200, referrals, "All referrals fetched"));
+  const referrals = await Referral.find()
+    .populate("influencer", "name email")
+    .populate("usedBy", "name email")
+    .sort({ createdAt: -1 });
+
+  return res.json(
+    new ApiResponse(200, referrals, "All referrals fetched with usage stats")
+  );
+});
+
+/** ----------------- ADMIN: Delete Referral ----------------- */
+export const deleteReferral = asyncHandler(async (req, res) => {
+  const { referralId } = req.params;
+
+  const referral = await Referral.findByIdAndDelete(referralId);
+  if (!referral) throw new ApiError(404, "Referral not found");
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, referral, "Referral deleted successfully"));
 });

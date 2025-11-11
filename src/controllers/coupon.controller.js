@@ -32,8 +32,13 @@ export const createCoupon = asyncHandler(async (req, res) => {
 });
 
 export const getAllCoupons = asyncHandler(async (req, res) => {
-  const coupons = await Coupon.find().sort({ createdAt: -1 });
-  return res.json(new ApiResponse(200, coupons, "All coupons fetched"));
+  const coupons = await Coupon.find()
+    .populate("usedBy", "name email")
+    .sort({ createdAt: -1 });
+
+  return res.json(
+    new ApiResponse(200, coupons, "All coupons fetched with usage stats")
+  );
 });
 
 export const deleteCoupon = asyncHandler(async (req, res) => {

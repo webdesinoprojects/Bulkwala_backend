@@ -1,6 +1,7 @@
 import express from "express";
 import {
   createReferral,
+  deleteReferral,
   getAllReferrals,
 } from "../controllers/referral.controller.js";
 import { validateData } from "../middleware/validate.js";
@@ -14,5 +15,6 @@ router
   .route("/")
   .post(isLoggedIn, isAdmin, validateData(createReferralSchema), createReferral)
   .get(isLoggedIn, isAdmin, getAllReferrals);
+router.route("/:referralId").delete(isLoggedIn, isAdmin, deleteReferral);
 
 export default router;

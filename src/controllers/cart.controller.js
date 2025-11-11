@@ -3,6 +3,7 @@ import Product from "../models/product.model.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import { ApiError } from "../utils/ApiError.js";
+import { calculateCartTotals } from "../utils/cartUtils.js";
 import Coupon from "../models/coupon.model.js";
 import Offer from "../models/offer.model.js";
 import Referral from "../models/referral.model.js";
@@ -83,7 +84,7 @@ const getCart = asyncHandler(async (req, res) => {
 
   const shippingPrice = itemsPrice > 1000 ? 0 : 50;
   const taxPrice = itemsPrice * 0.18;
-  let totalPrice = itemsPrice + shippingPrice + taxPrice;
+  let totalPrice = itemsPrice + shippingPrice + taxPrice; 
 
   // ✅ Apply discount if coupon exists
   if (cart.discount > 0) {
@@ -228,48 +229,50 @@ const applyCoupon = asyncHandler(async (req, res) => {
   if (!cart || cart.items.length === 0)
     throw new ApiError(404, "Your cart is empty");
 
-  if (cart.referralCode) {
+  if (cart.referralCode)
     throw new ApiError(400, "Remove referral before applying a coupon");
-  }
 
   const activeOffer = await Offer.findOne({ isActive: true });
-  if (activeOffer && activeOffer.expiresAt > Date.now()) {
+  if (activeOffer && activeOffer.expiresAt > Date.now())
     throw new ApiError(400, "Cannot apply coupon during active flash offer");
-  }
 
   const coupon = await Coupon.findOne({ code: couponCode?.toUpperCase() });
   if (!coupon) throw new ApiError(400, "Invalid coupon code");
   if (coupon.expiryDate < Date.now()) throw new ApiError(400, "Coupon expired");
   if (coupon.usedCount >= coupon.usageLimit)
     throw new ApiError(400, "Coupon usage limit reached");
+  if (coupon.usedBy.includes(userId))
+    throw new ApiError(400, "You have already used this coupon");
 
-  // calculate total
-  const itemsPrice = cart.items.reduce(
-    (acc, item) => acc + item.product.price * item.quantity,
-    0
-  );
-  const shippingPrice = itemsPrice > 1000 ? 0 : 50;
-  const taxPrice = itemsPrice * 0.18;
-  const total = itemsPrice + shippingPrice + taxPrice;
+  //  Use helper function
+  const { totalBeforeDiscount } = calculateCartTotals(cart);
 
-  if (total < coupon.minOrderValue)
+  if (totalBeforeDiscount < coupon.minOrderValue)
     throw new ApiError(
       400,
       `Minimum order value ₹${coupon.minOrderValue} required`
     );
 
-  // calculate discount
   let discount =
     coupon.discountType === "percentage"
-      ? (total * coupon.discountValue) / 100
+      ? (totalBeforeDiscount * coupon.discountValue) / 100
       : coupon.discountValue;
 
-  if (discount > total) discount = total;
+  if (discount > totalBeforeDiscount) discount = totalBeforeDiscount;
 
-  // ✅ update cart
+  //  Final total after applying coupon
+  const finalAmount = Math.max(totalBeforeDiscount - discount, 0);
+
+  // update cart
   cart.coupon = coupon._id;
   cart.discount = discount;
   await cart.save();
+
+  //  Update coupon usage and sales
+  coupon.usedCount += 1;
+  coupon.usedBy.push(userId);
+  coupon.totalSales += finalAmount; // use final discounted total
+  await coupon.save();
 
   return res.status(200).json(
     new ApiResponse(200, {
@@ -277,7 +280,7 @@ const applyCoupon = asyncHandler(async (req, res) => {
       message: "Coupon applied successfully",
       coupon: coupon.code,
       discount,
-      totalAfterDiscount: total - discount,
+      totalAfterDiscount: totalBeforeDiscount - discount,
       cart,
     })
   );
@@ -285,9 +288,42 @@ const applyCoupon = asyncHandler(async (req, res) => {
 
 const removeCoupon = asyncHandler(async (req, res) => {
   const userId = req.user._id;
-  const cart = await Cart.findOne({ user: userId });
+  const cart = await Cart.findOne({ user: userId }).populate("items.product");
   if (!cart) throw new ApiError(404, "Cart not found");
 
+  if (!cart.coupon)
+    return res
+      .status(400)
+      .json(new ApiResponse(400, null, "No coupon applied on this cart"));
+
+  const coupon = await Coupon.findById(cart.coupon);
+  if (coupon) {
+    const wasUsed = coupon.usedBy.includes(userId);
+    if (wasUsed) {
+      const { totalBeforeDiscount } = calculateCartTotals(cart);
+
+      // ✅ Calculate discount again to find the real deducted sale
+      const discount =
+        coupon.discountType === "percentage"
+          ? (totalBeforeDiscount * coupon.discountValue) / 100
+          : coupon.discountValue;
+
+      const finalAmount = Math.max(totalBeforeDiscount - discount, 0);
+
+      // ✅ Reverse totalSales by finalAmount only
+      coupon.totalSales = Math.max(0, coupon.totalSales - finalAmount);
+
+      // ✅ Update usage info
+      coupon.usedBy = coupon.usedBy.filter(
+        (uid) => uid.toString() !== userId.toString()
+      );
+      if (coupon.usedCount > 0) coupon.usedCount -= 1;
+
+      await coupon.save();
+    }
+  }
+
+  // ✅ Reset coupon in cart
   cart.coupon = null;
   cart.discount = 0;
   await cart.save();
@@ -302,47 +338,42 @@ const applyReferral = asyncHandler(async (req, res) => {
   const { referralCode } = req.body;
 
   const cart = await Cart.findOne({ user: userId }).populate("items.product");
-
   if (!cart || cart.items.length === 0)
     throw new ApiError(404, "Your cart is empty");
 
-  if (cart.coupon) {
+  if (cart.coupon)
     throw new ApiError(400, "Remove coupon before applying a referral");
-  }
 
   const activeOffer = await Offer.findOne({ isActive: true });
-  if (activeOffer && activeOffer.expiresAt > Date.now()) {
+  if (activeOffer && activeOffer.expiresAt > Date.now())
     throw new ApiError(400, "Cannot apply referral during active flash offer");
-  }
 
   const referral = await Referral.findOne({
     code: referralCode?.toUpperCase(),
   });
   if (!referral) throw new ApiError(400, "Invalid referral code");
+  if (referral.usedBy.includes(userId))
+    throw new ApiError(400, "You have already used this referral code");
 
-  // Calculate current total
-  const itemsPrice = cart.items.reduce(
-    (acc, item) => acc + item.product.price * item.quantity,
-    0
-  );
-  const shippingPrice = itemsPrice > 1000 ? 0 : 50;
-  const taxPrice = itemsPrice * 0.18;
-  const total = itemsPrice + shippingPrice + taxPrice;
+  // ✅ Use helper to calculate totals
+  const { totalBeforeDiscount } = calculateCartTotals(cart);
 
-  // Calculate discount from referral
-  const discount = (total * referral.discountPercent) / 100;
+  // ✅ Calculate referral discount
+  const discount = (totalBeforeDiscount * referral.discountPercent) / 100;
 
-  // Update cart
+  // ✅ Calculate final payable amount
+  const finalAmount = Math.max(totalBeforeDiscount - discount, 0);
+
+  // ✅ Update cart with referral details
   cart.referralCode = referral.code;
   cart.referralDiscount = discount;
   await cart.save();
 
-  // Track usage
-  if (!referral.usedBy.includes(userId)) {
-    referral.usedBy.push(userId);
-    referral.usageCount += 1;
-    await referral.save();
-  }
+  // ✅ Update referral stats (add only net sales after discount)
+  referral.usedBy.push(userId);
+  referral.usageCount += 1;
+  referral.totalSales += finalAmount; // previously totalBeforeDiscount
+  await referral.save();
 
   return res.status(200).json(
     new ApiResponse(200, {
@@ -350,7 +381,7 @@ const applyReferral = asyncHandler(async (req, res) => {
       message: "Referral applied successfully",
       referral: referral.code,
       discount,
-      totalAfterDiscount: total - discount,
+      totalAfterDiscount: finalAmount,
       cart,
     })
   );
@@ -358,9 +389,38 @@ const applyReferral = asyncHandler(async (req, res) => {
 
 const removeReferral = asyncHandler(async (req, res) => {
   const userId = req.user._id;
-  const cart = await Cart.findOne({ user: userId });
+  const cart = await Cart.findOne({ user: userId }).populate("items.product");
   if (!cart) throw new ApiError(404, "Cart not found");
 
+  if (!cart.referralCode) {
+    return res
+      .status(400)
+      .json(new ApiResponse(400, null, "No referral applied on this cart"));
+  }
+
+  const referral = await Referral.findOne({ code: cart.referralCode });
+  if (referral) {
+    const wasUsed = referral.usedBy.includes(userId);
+    if (wasUsed) {
+      // ✅ Recalculate totalBeforeDiscount and discount
+      const { totalBeforeDiscount } = calculateCartTotals(cart);
+      const discount = (totalBeforeDiscount * referral.discountPercent) / 100;
+      const finalAmount = Math.max(totalBeforeDiscount - discount, 0);
+
+      // ✅ Reverse totalSales safely (subtract finalAmount)
+      referral.totalSales = Math.max(0, referral.totalSales - finalAmount);
+
+      // ✅ Update usage stats
+      referral.usedBy = referral.usedBy.filter(
+        (uid) => uid.toString() !== userId.toString()
+      );
+      if (referral.usageCount > 0) referral.usageCount -= 1;
+
+      await referral.save();
+    }
+  }
+
+  // ✅ Reset cart
   cart.referralCode = null;
   cart.referralDiscount = 0;
   await cart.save();

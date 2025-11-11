@@ -11,6 +11,7 @@ const referralSchema = new mongoose.Schema(
     discountPercent: { type: Number, default: 10 },
     usageCount: { type: Number, default: 0 },
     usedBy: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
+    totalSales: { type: Number, default: 0 },
   },
   { timestamps: true }
 );
