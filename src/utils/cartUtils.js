@@ -3,19 +3,21 @@ export const calculateCartTotals = (cart) => {
     return {
       itemsPrice: 0,
       shippingPrice: 0,
-      taxPrice: 0,
       totalBeforeDiscount: 0,
     };
   }
 
-  const itemsPrice = cart.items.reduce(
-    (acc, item) => acc + (item.product?.price || 0) * item.quantity,
-    0
-  );
+  // ✅ Use discountPrice if available, else fallback to price
+  const itemsPrice = cart.items.reduce((acc, item) => {
+    const price =
+      item.product?.discountPrice && item.product.discountPrice > 0
+        ? item.product.discountPrice
+        : item.product?.price || 0;
+    return acc + price * item.quantity;
+  }, 0);
 
-  const shippingPrice = itemsPrice > 1000 ? 0 : 50;
-  const taxPrice = itemsPrice * 0.18;
-  const totalBeforeDiscount = itemsPrice + shippingPrice + taxPrice;
+  const shippingPrice = itemsPrice > 297 ? 0 : 50;
+  const totalBeforeDiscount = itemsPrice + shippingPrice;
 
-  return { itemsPrice, shippingPrice, taxPrice, totalBeforeDiscount };
+  return { itemsPrice, shippingPrice, totalBeforeDiscount };
 };

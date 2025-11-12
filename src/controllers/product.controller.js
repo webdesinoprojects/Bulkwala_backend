@@ -27,6 +27,7 @@ const createProduct = asyncHandler(async (req, res) => {
     genericName,
     countryOfOrigin,
     manufacturerName,
+    gstSlab,
   } = req.body;
 
   const slug = incomingSlug
@@ -117,6 +118,7 @@ const createProduct = asyncHandler(async (req, res) => {
     countryOfOrigin,
     manufacturerName,
     createdBy: req.user._id,
+    gstSlab,
   });
 
   return res
@@ -358,6 +360,7 @@ const updateProduct = asyncHandler(async (req, res) => {
     "genericName",
     "countryOfOrigin",
     "manufacturerName",
+    "gstSlab",
   ];
 
   allowedFields.forEach((field) => {

@@ -75,12 +75,7 @@ const orderSchema = new mongoose.Schema(
       min: 0,
       default: 0,
     },
-    taxPrice: {
-      type: Number,
-      required: true,
-      min: 0,
-      default: 0,
-    },
+
     // ✅ Discount fields
     couponDiscount: { type: Number, default: 0, min: 0 },
     referralDiscount: { type: Number, default: 0, min: 0 },

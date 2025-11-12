@@ -82,7 +82,7 @@ const productSchema = new mongoose.Schema(
     },
 
     sku: {
-      type: String,
+      type: String, 
       unique: true,
       sparse: true, // allows null values without violating unique
       trim: true,
@@ -107,6 +107,12 @@ const productSchema = new mongoose.Schema(
     },
 
     manufacturerName: { type: String, trim: true },
+
+    gstSlab: {
+      type: Number,
+      enum: [0, 5, 12, 18, 28],
+      default: 18,
+    },
 
     createdBy: {
       type: mongoose.Schema.Types.ObjectId,

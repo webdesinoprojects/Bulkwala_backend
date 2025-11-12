@@ -39,7 +39,6 @@ const paymentSchema = new mongoose.Schema(
     // Base pricing details
     itemsPrice: { type: Number, required: true },
     shippingPrice: { type: Number, required: true },
-    taxPrice: { type: Number, required: true },
 
     // ✅ Discount fields (NEW)
     prepaidDiscount: { type: Number, default: 0 },

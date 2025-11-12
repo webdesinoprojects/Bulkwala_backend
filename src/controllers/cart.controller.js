@@ -48,7 +48,11 @@ const addToCart = asyncHandler(async (req, res) => {
         const prod = products.find(
           (p) => p._id.toString() === item.product.toString()
         );
-        return acc + (prod?.price || 0) * item.quantity;
+        const price =
+          prod?.discountPrice && prod.discountPrice > 0
+            ? prod.discountPrice
+            : prod?.price || 0;
+        return acc + price * item.quantity;
       }, 0);
 
       if (newTotal < coupon.minOrderValue) {
@@ -70,7 +74,7 @@ const getCart = asyncHandler(async (req, res) => {
 
   const cart = await Cart.findOne({ user: userId }).populate(
     "items.product",
-    "title price images description"
+    "title price discountPrice images description"
   );
 
   if (!cart || cart.items.length === 0)
@@ -78,13 +82,15 @@ const getCart = asyncHandler(async (req, res) => {
 
   //  Calculate subtotal and total
   const itemsPrice = cart.items.reduce((acc, item) => {
-    const price = item.product?.price || 0;
+    const price =
+      item.product?.discountPrice && item.product.discountPrice > 0
+        ? item.product.discountPrice
+        : item.product?.price || 0;
     return acc + price * item.quantity;
   }, 0);
 
   const shippingPrice = itemsPrice > 1000 ? 0 : 50;
-  const taxPrice = itemsPrice * 0.18;
-  let totalPrice = itemsPrice + shippingPrice + taxPrice; 
+  let totalPrice = itemsPrice + shippingPrice;
 
   // ✅ Apply discount if coupon exists
   if (cart.discount > 0) {
@@ -140,7 +146,6 @@ const getCart = asyncHandler(async (req, res) => {
     ...cart.toObject(),
     itemsPrice,
     shippingPrice,
-    taxPrice,
     totalPrice,
     totalItems,
     discount: cart.discount || 0,

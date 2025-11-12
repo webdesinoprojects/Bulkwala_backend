@@ -24,7 +24,7 @@ const createOrder = asyncHandler(async (req, res) => {
 
   const cart = await Cart.findOne({ user: userId }).populate(
     "items.product",
-    "title price"
+    "title price discountPrice"
   );
 
   if (!cart || cart.items.length === 0) {
@@ -33,13 +33,15 @@ const createOrder = asyncHandler(async (req, res) => {
 
   // Calculate the prices manually
   const itemsPrice = cart.items.reduce((acc, item) => {
-    const price = item.product?.price || 0;
+    const price =
+      item.product?.discountPrice && item.product.discountPrice > 0
+        ? item.product.discountPrice
+        : item.product?.price || 0;
     return acc + price * item.quantity;
   }, 0);
 
-  let shippingPrice = itemsPrice > 1000 ? 0 : 50;
-  const taxPrice = itemsPrice * 0.18;
-  let totalPrice = itemsPrice + shippingPrice + taxPrice;
+  let shippingPrice = itemsPrice > 297 ? 0 : 50;
+  let totalPrice = itemsPrice + shippingPrice;
 
   // ✅ Collect all active discounts
   const couponDiscount = cart.discount || 0;
@@ -70,16 +72,16 @@ const createOrder = asyncHandler(async (req, res) => {
     shippingPrice = 0;
   }
 
-  totalPrice = Math.max(
-    itemsPrice + shippingPrice + taxPrice - totalDiscount,
-    0
-  );
+  totalPrice = Math.max(itemsPrice + shippingPrice - totalDiscount, 0);
 
   // Create the final products array
   const finalProducts = cart.items.map((item) => {
     const product = item.product._id;
     const quantity = item.quantity;
-    const priceAtPurchase = item.product.price;
+    const priceAtPurchase =
+      item.product?.discountPrice && item.product.discountPrice > 0
+        ? item.product.discountPrice
+        : item.product?.price || 0;
 
     return { product, quantity, priceAtPurchase };
   });
@@ -93,7 +95,6 @@ const createOrder = asyncHandler(async (req, res) => {
       paymentMode,
       itemsPrice,
       shippingPrice: 0, // no shipping charge
-      taxPrice,
       couponDiscount,
       referralDiscount,
       flashDiscount,
@@ -117,7 +118,7 @@ const createOrder = asyncHandler(async (req, res) => {
 
     const populatedOrder = await Order.findById(order._id).populate(
       "products.product",
-      "title price"
+      "title price discountPrice"
     );
 
     return res
@@ -136,7 +137,6 @@ const createOrder = asyncHandler(async (req, res) => {
       paymentMode,
       itemsPrice,
       shippingPrice,
-      taxPrice,
       couponDiscount,
       referralDiscount,
       flashDiscount,
@@ -167,7 +167,7 @@ const createOrder = asyncHandler(async (req, res) => {
 
     const populatedOrder = await Order.findById(order._id).populate(
       "products.product",
-      "title price"
+      "title price discountPrice"
     );
 
     return res
@@ -202,7 +202,6 @@ const createOrder = asyncHandler(async (req, res) => {
     products: finalProducts,
     itemsPrice,
     shippingPrice,
-    taxPrice,
     couponDiscount,
     referralDiscount,
     flashDiscount,
@@ -258,7 +257,6 @@ const verifyRazorpayPayment = asyncHandler(async (req, res) => {
     paymentMode: payment.paymentMode,
     itemsPrice: payment.itemsPrice,
     shippingPrice: payment.shippingPrice,
-    taxPrice: payment.taxPrice,
     couponDiscount: payment.couponDiscount || 0,
     referralDiscount: payment.referralDiscount || 0,
     flashDiscount: payment.flashDiscount || 0,
@@ -302,7 +300,7 @@ const verifyRazorpayPayment = asyncHandler(async (req, res) => {
 
   const populatedOrder = await Order.findById(order._id).populate(
     "products.product",
-    "title price images"
+    "title price discountPrice images"
   );
 
   return res
@@ -319,7 +317,7 @@ const verifyRazorpayPayment = asyncHandler(async (req, res) => {
 const getMyOrders = asyncHandler(async (req, res) => {
   const orders = await Order.find({ user: req.user._id }).populate(
     "products.product",
-    "title images price"
+    "title images price discountPrice"
   );
   return res
     .status(200)
@@ -329,7 +327,7 @@ const getMyOrders = asyncHandler(async (req, res) => {
 const getAllOrders = asyncHandler(async (_req, res) => {
   const orders = await Order.find()
     .populate("user", "name email")
-    .populate("products.product", "title price images")
+    .populate("products.product", "title price discountPrice images")
     .sort({ createdAt: -1 });
 
   return res
@@ -340,7 +338,7 @@ const getAllOrders = asyncHandler(async (_req, res) => {
 const getSingleOrder = asyncHandler(async (req, res) => {
   const order = await Order.findById(req.params.orderId)
     .populate("user", "name email")
-    .populate("products.product", "title price images");
+    .populate("products.product", "title price discountPrice images");
 
   if (!order) {
     throw new ApiError(404, "Order not found");
