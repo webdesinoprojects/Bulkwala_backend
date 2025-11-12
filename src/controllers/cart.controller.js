@@ -89,7 +89,7 @@ const getCart = asyncHandler(async (req, res) => {
     return acc + price * item.quantity;
   }, 0);
 
-  const shippingPrice = itemsPrice > 1000 ? 0 : 50;
+  const shippingPrice = itemsPrice > 297 ? 0 : 50;
   let totalPrice = itemsPrice + shippingPrice;
 
   // ✅ Apply discount if coupon exists

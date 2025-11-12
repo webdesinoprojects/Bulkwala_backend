@@ -8,7 +8,11 @@ import { orderStatusEnum, paymentStatusEnum } from "../utils/constant.js";
 import Payment from "../models/payment.model.js";
 import razorpayInstance from "../utils/razorpay.js";
 import Cart from "../models/cart.model.js";
-import { createShipment, trackShipment } from "../utils/delhivery.js";
+import {
+  createShipment,
+  trackShipment,
+  getShippingLabel,
+} from "../utils/delhivery.js";
 import { mapDelhiveryToOrderStatus } from "../utils/delhiveryStatusMap.js";
 import Offer from "../models/offer.model.js";
 
@@ -118,7 +122,7 @@ const createOrder = asyncHandler(async (req, res) => {
 
     const populatedOrder = await Order.findById(order._id).populate(
       "products.product",
-      "title price discountPrice"
+      "title sku price discountPrice gstSlab images"
     );
 
     return res
@@ -167,7 +171,7 @@ const createOrder = asyncHandler(async (req, res) => {
 
     const populatedOrder = await Order.findById(order._id).populate(
       "products.product",
-      "title price discountPrice"
+      "title sku price discountPrice gstSlab images"
     );
 
     return res
@@ -300,7 +304,7 @@ const verifyRazorpayPayment = asyncHandler(async (req, res) => {
 
   const populatedOrder = await Order.findById(order._id).populate(
     "products.product",
-    "title price discountPrice images"
+    "title sku price discountPrice gstSlab images"
   );
 
   return res
@@ -317,8 +321,9 @@ const verifyRazorpayPayment = asyncHandler(async (req, res) => {
 const getMyOrders = asyncHandler(async (req, res) => {
   const orders = await Order.find({ user: req.user._id }).populate(
     "products.product",
-    "title images price discountPrice"
+    "title sku price discountPrice gstSlab images"
   );
+
   return res
     .status(200)
     .json(new ApiResponse(200, orders, "User orders fetched successfully"));
@@ -327,7 +332,10 @@ const getMyOrders = asyncHandler(async (req, res) => {
 const getAllOrders = asyncHandler(async (_req, res) => {
   const orders = await Order.find()
     .populate("user", "name email")
-    .populate("products.product", "title price discountPrice images")
+    .populate(
+      "products.product",
+      "title sku price discountPrice gstSlab images"
+    )
     .sort({ createdAt: -1 });
 
   return res
@@ -710,6 +718,30 @@ const razorpayWebhook = asyncHandler(async (req, res) => {
   return res.status(200).json({ success: true });
 });
 
+const downloadShippingLabel = asyncHandler(async (req, res) => {
+  const { orderId } = req.params;
+  const order = await Order.findById(orderId);
+  if (!order) throw new ApiError(404, "Order not found");
+  if (!order.trackingId)
+    throw new ApiError(400, "No tracking ID for this order");
+
+  const pdfBuffer = await getShippingLabel(order.trackingId);
+
+  if (!pdfBuffer) {
+    throw new ApiError(
+      400,
+      "Label not available yet — shipment not picked or token invalid."
+    );
+  }
+
+  res.setHeader("Content-Type", "application/pdf");
+  res.setHeader(
+    "Content-Disposition",
+    `inline; filename=Label_${order.trackingId}.pdf`
+  );
+  res.send(pdfBuffer);
+});
+
 export {
   createOrder,
   getMyOrders,
@@ -724,4 +756,5 @@ export {
   retryShipment,
   delhiveryWebhook,
   razorpayWebhook,
+  downloadShippingLabel,
 };

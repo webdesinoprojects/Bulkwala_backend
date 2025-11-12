@@ -80,6 +80,10 @@ export const createProductSchema = z.object({
     }),
 
   countryOfOrigin: z.enum(["India", "China"]).default("India"),
+  gstSlab: z
+    .union([z.string(), z.number()])
+    .transform((val) => Number(String(val).replace("%", "")) || 0)
+    .optional(),
 });
 
 export const updateProductSchema = z.object({
@@ -159,6 +163,10 @@ export const updateProductSchema = z.object({
       }
       return [];
     }),
+  gstSlab: z
+    .union([z.string(), z.number()])
+    .transform((val) => Number(String(val).replace("%", "")) || 0)
+    .optional(),
 });
 
 export const filterProductSchema = z.object({

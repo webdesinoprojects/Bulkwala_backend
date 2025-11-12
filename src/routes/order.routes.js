@@ -19,6 +19,7 @@ import {
   delhiveryWebhook,
   razorpayWebhook,
   retryShipment,
+  downloadShippingLabel,
 } from "../controllers/order.controller.js";
 import {
   isLoggedIn,
@@ -70,6 +71,10 @@ router
 router
   .route("/:orderId/retry-shipment")
   .post(isLoggedIn, isAdmin, retryShipment);
+
+router
+  .route("/:orderId/shipping-label")
+  .get(isLoggedIn, isAdmin, downloadShippingLabel);
 
 // 🔔 Webhooks (public, no auth)
 router.route("/webhook/delhivery").post(

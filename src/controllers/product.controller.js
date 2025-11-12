@@ -364,7 +364,14 @@ const updateProduct = asyncHandler(async (req, res) => {
   ];
 
   allowedFields.forEach((field) => {
-    if (updates[field] !== undefined) product[field] = updates[field];
+    if (updates[field] !== undefined) {
+      // ✅ Force numeric conversion for numeric fields
+      if (["price", "discountPrice", "stock", "gstSlab"].includes(field)) {
+        product[field] = Number(String(updates[field]).replace("%", "")) || 0;
+      } else {
+        product[field] = updates[field];
+      }
+    }
   });
 
   // ✅ Ensure createdBy is always set (prevents validation error)
