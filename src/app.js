@@ -6,10 +6,11 @@ import morgan from "morgan";
 const app = express();
 
 const frontendURL = process.env.FRONTEND_URL;
+const allowedOrigins = frontendURL.split(",").map((url) => url.trim());
 
 app.use(
   cors({
-    origin: frontendURL,
+    origin: allowedOrigins,
     credentials: true,
   })
 );
