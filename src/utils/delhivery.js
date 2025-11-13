@@ -33,12 +33,13 @@ export const createShipment = async (order) => {
         shipments: [
           {
             // 🏠 Address
-            add: `${order.shippingAddress.street} (Phone: ${order.shippingAddress.phone})`,
+            name: order.shippingAddress.name.trim(),
+            add: order.shippingAddress.street,
             city: order.shippingAddress.city.trim(),
             state: order.shippingAddress.state.trim(),
             country: order.shippingAddress.country || "India",
-            name: order.shippingAddress.name.trim(),
             pin: order.shippingAddress.postalCode,
+            phone: order.shippingAddress.phone,
 
             // 🧾 Order info
             order: order._id.toString(),
@@ -49,13 +50,33 @@ export const createShipment = async (order) => {
               order.paymentMode?.toLowerCase() === "cod"
                 ? Number(order.totalPrice)
                 : 0,
-            seller_inv: `INV-${Date.now()}`,
-            weight: 0.5, // default weight (KG)
 
-            // ✔ PRODUCT DETAILS PROPER WAY
-            product_description: productDetails.slice(0, 200),
-            // ⭐ THE MAGIC FIELD → WILL SHOW ON LABEL
-            client: productDetails.slice(0, 30),
+            products_desc: productDetails.slice(0, 150),
+            quantity: order.products.reduce(
+              (sum, item) => sum + item.quantity,
+              0
+            ),
+            // Seller details
+            seller_name: "Bulkwala",
+            seller_add:
+              "Upper Ground Floor, Block M-77, Uttam Nagar, New Delhi - 110059",
+            seller_inv: `INV-${Date.now()}`,
+
+            // Return Address
+            return_add:
+              "Upper Ground Floor, Block M-77, Uttam Nagar, New Delhi - 110059",
+            return_pin: "110059",
+            return_city: "New Delhi",
+            return_state: "Delhi",
+            return_country: "India",
+            return_phone: "9310701078",
+
+            // Shipment info
+            shipment_width: "10",
+            shipment_height: "10",
+            weight: "0.50",
+            shipping_mode: "Surface",
+            address_type: "home",
           },
         ],
 
