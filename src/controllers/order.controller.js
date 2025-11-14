@@ -98,15 +98,15 @@ const createOrder = asyncHandler(async (req, res) => {
       shippingAddress,
       paymentMode,
       itemsPrice,
-      shippingPrice: 0, // no shipping charge
+      shippingPrice: 0,
       couponDiscount,
       referralDiscount,
       flashDiscount,
       flashDiscountPercent,
       prepaidDiscount: 0,
       totalPrice,
-      paymentStatus: paymentStatusEnum.SUCCESS, // ✅ Mark paid
-      status: orderStatusEnum.DELIVERED, // ✅ Instantly delivered
+      paymentStatus: paymentStatusEnum.PENDING,
+      status: orderStatusEnum.PROCESSING,
       deliveredAt: new Date(),
     });
 

@@ -143,6 +143,13 @@ const loginUser = asyncHandler(async (req, res) => {
 
   const { accessToken, refreshToken } = user.generateJWT();
 
+  // 🔥 FIX: SAVE REFRESH TOKEN
+  user.refreshToken = refreshToken;
+  user.refreshTokenExpireAt = new Date(
+    Date.now() + ms(process.env.REFRESH_TOKEN_EXPIRES_IN)
+  );
+  await user.save({ validateBeforeSave: false });
+
   return res
     .status(200)
     .cookie("accessToken", accessToken, cookieOptions)
@@ -177,6 +184,13 @@ const verifyOtpLogin = asyncHandler(async (req, res) => {
   if (!user) throw new ApiError(404, "User not found");
 
   const { accessToken, refreshToken } = user.generateJWT();
+
+  user.refreshToken = refreshToken;
+  user.refreshTokenExpireAt = new Date(
+    Date.now() + ms(process.env.REFRESH_TOKEN_EXPIRES_IN)
+  );
+
+  await user.save({ validateBeforeSave: false });
 
   return res
     .status(200)
