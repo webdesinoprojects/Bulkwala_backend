@@ -4,6 +4,7 @@ import cookieParser from "cookie-parser";
 import morgan from "morgan";
 
 const app = express();
+app.set("trust proxy", 1);
 
 const frontendURL = process.env.FRONTEND_URL;
 const allowedOrigins = frontendURL.split(",").map((url) => url.trim());
