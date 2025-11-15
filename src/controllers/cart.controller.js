@@ -12,15 +12,55 @@ const addToCart = asyncHandler(async (req, res) => {
   const userId = req.user._id;
   const { productId, quantity } = req.body;
 
+  // ✅ Validate product exists, is active, and not deleted
   const product = await Product.findById(productId);
   if (!product) throw new ApiError(404, "Product not found");
+  if (product.isDeleted) throw new ApiError(400, "Product is no longer available");
+  if (!product.isActive) throw new ApiError(400, "Product is currently unavailable");
+
+  // ✅ Validate stock availability
+  const requestedQuantity = quantity || 1;
+  if (requestedQuantity <= 0) {
+    throw new ApiError(400, "Quantity must be greater than 0");
+  }
 
   let cart = await Cart.findOne({ user: userId });
+
+  // ✅ Calculate total quantity (existing + new)
+  let totalQuantity = requestedQuantity;
+  if (cart) {
+    const existingItem = cart.items.find(
+      (item) => item.product.toString() === productId
+    );
+    if (existingItem) {
+      totalQuantity = existingItem.quantity + requestedQuantity;
+    }
+  }
+
+  // ✅ Check if total quantity exceeds available stock
+  if (totalQuantity > product.stock) {
+    const availableStock = product.stock;
+    const existingQty = cart?.items.find(
+      (item) => item.product.toString() === productId
+    )?.quantity || 0;
+    
+    if (existingQty > 0) {
+      throw new ApiError(
+        400,
+        `Only ${availableStock} items available in stock. You already have ${existingQty} in your cart.`
+      );
+    } else {
+      throw new ApiError(
+        400,
+        `Only ${availableStock} items available in stock.`
+      );
+    }
+  }
 
   if (!cart) {
     cart = new Cart({
       user: userId,
-      items: [{ product: productId, quantity }],
+      items: [{ product: productId, quantity: requestedQuantity }],
     });
   } else {
     const existingItem = cart.items.find(
@@ -28,9 +68,9 @@ const addToCart = asyncHandler(async (req, res) => {
     );
 
     if (existingItem) {
-      existingItem.quantity += quantity || 1;
+      existingItem.quantity += requestedQuantity;
     } else {
-      cart.items.push({ product: productId, quantity });
+      cart.items.push({ product: productId, quantity: requestedQuantity });
     }
   }
 
@@ -74,14 +114,111 @@ const getCart = asyncHandler(async (req, res) => {
 
   const cart = await Cart.findOne({ user: userId }).populate(
     "items.product",
-    "title price discountPrice images description"
+    "title price discountPrice images description stock isActive isDeleted"
   );
 
-  if (!cart || cart.items.length === 0)
-    throw new ApiError(404, "Your cart is empty");
+  // ✅ Return empty cart structure instead of 404 (better UX)
+  if (!cart || cart.items.length === 0) {
+    return res.status(200).json(
+      new ApiResponse(
+        200,
+        {
+          items: [],
+          itemsPrice: 0,
+          shippingPrice: 0,
+          totalPrice: 0,
+          totalItems: 0,
+          discount: 0,
+          couponApplied: false,
+          couponCode: "",
+          flashDiscount: 0,
+          flashDiscountPercent: 0,
+          referralApplied: false,
+          referralCode: null,
+          referralDiscount: 0,
+        },
+        "Cart is empty"
+      )
+    );
+  }
 
-  //  Calculate subtotal and total
-  const itemsPrice = cart.items.reduce((acc, item) => {
+  // ✅ Filter out deleted/inactive products and adjust quantities for low stock
+  const validItems = [];
+  const removedProducts = [];
+
+  for (const item of cart.items) {
+    const product = item.product;
+    
+    // Skip if product is null (deleted)
+    if (!product) {
+      removedProducts.push(item.product?.toString() || "unknown");
+      continue;
+    }
+
+    // Skip if product is deleted or inactive
+    if (product.isDeleted || !product.isActive) {
+      removedProducts.push(product._id.toString());
+      continue;
+    }
+
+    // ✅ Adjust quantity if it exceeds available stock
+    if (item.quantity > product.stock) {
+      if (product.stock > 0) {
+        // Reduce quantity to available stock
+        item.quantity = product.stock;
+        validItems.push(item);
+      } else {
+        // Remove out of stock items
+        removedProducts.push(product._id.toString());
+        continue;
+      }
+    } else {
+      validItems.push(item);
+    }
+  }
+
+  // ✅ Update cart if items were removed
+  if (removedProducts.length > 0 || validItems.length !== cart.items.length) {
+    cart.items = validItems;
+    // Reset coupon if cart becomes empty
+    if (cart.items.length === 0) {
+      cart.coupon = null;
+      cart.discount = 0;
+      cart.referralCode = null;
+      cart.referralDiscount = 0;
+    }
+    await cart.save();
+  }
+
+  // ✅ Return empty cart if all items were invalid
+  if (validItems.length === 0) {
+    return res.status(200).json(
+      new ApiResponse(
+        200,
+        {
+          items: [],
+          itemsPrice: 0,
+          shippingPrice: 0,
+          totalPrice: 0,
+          totalItems: 0,
+          discount: 0,
+          couponApplied: false,
+          couponCode: "",
+          flashDiscount: 0,
+          flashDiscountPercent: 0,
+          referralApplied: false,
+          referralCode: null,
+          referralDiscount: 0,
+        },
+        removedProducts.length > 0 
+          ? "Some products are no longer available. Cart has been updated."
+          : "Cart is empty"
+      )
+    );
+  }
+
+  // ✅ Calculate subtotal and total (using valid items)
+  const itemsPrice = validItems.reduce((acc, item) => {
     const price =
       item.product?.discountPrice && item.product.discountPrice > 0
         ? item.product.discountPrice
@@ -98,7 +235,7 @@ const getCart = asyncHandler(async (req, res) => {
     if (totalPrice < 0) totalPrice = 0;
   }
 
-  const totalItems = cart.items.reduce((acc, item) => acc + item.quantity, 0);
+  const totalItems = validItems.reduce((acc, item) => acc + item.quantity, 0);
 
   const couponApplied = !!cart.coupon;
   let couponCode = "";
@@ -120,13 +257,19 @@ const getCart = asyncHandler(async (req, res) => {
 
   // 🔒 Ensure only one offer type applies at a time
   if (cart.coupon) {
-    console.log("Coupon applied — skipping referral and flash offer");
+    if (process.env.NODE_ENV === "development") {
+      console.log("Coupon applied — skipping referral and flash offer");
+    }
     cart.referralCode = null;
     cart.referralDiscount = 0;
   } else if (cart.referralCode) {
-    console.log("Referral applied — skipping coupon and flash offer");
+    if (process.env.NODE_ENV === "development") {
+      console.log("Referral applied — skipping coupon and flash offer");
+    }
   } else if (activeOffer && activeOffer.expiresAt > Date.now()) {
-    console.log("Flash offer active — applying flash discount only");
+    if (process.env.NODE_ENV === "development") {
+      console.log("Flash offer active — applying flash discount only");
+    }
 
     flashDiscountPercent = activeOffer.discountPercent;
 
@@ -144,6 +287,7 @@ const getCart = asyncHandler(async (req, res) => {
 
   const cartData = {
     ...cart.toObject(),
+    items: validItems, // Use filtered valid items
     itemsPrice,
     shippingPrice,
     totalPrice,
@@ -158,7 +302,9 @@ const getCart = asyncHandler(async (req, res) => {
   };
 
   // Optional: Log cart data (for debugging purposes)
-  console.log("Cart Data:", cartData);
+  if (process.env.NODE_ENV === "development") {
+    console.log("Cart Data:", cartData);
+  }
 
   return res
     .status(200)
@@ -169,12 +315,44 @@ const updateCartItem = asyncHandler(async (req, res) => {
   const userId = req.user._id;
   const { productId, quantity } = req.body;
 
+  // ✅ Validate quantity
+  if (!quantity || quantity <= 0) {
+    throw new ApiError(400, "Quantity must be greater than 0");
+  }
+
   const cart = await Cart.findOne({ user: userId });
   if (!cart) throw new ApiError(404, "Cart not found");
 
   const item = cart.items.find((item) => item.product.toString() === productId);
 
   if (!item) throw new ApiError(404, "Item not found in cart");
+
+  // ✅ Validate product still exists and is available
+  const product = await Product.findById(productId);
+  if (!product) {
+    // Remove invalid product from cart
+    cart.items = cart.items.filter(
+      (item) => item.product.toString() !== productId
+    );
+    await cart.save();
+    throw new ApiError(404, "Product no longer available. Removed from cart.");
+  }
+  if (product.isDeleted || !product.isActive) {
+    // Remove unavailable product from cart
+    cart.items = cart.items.filter(
+      (item) => item.product.toString() !== productId
+    );
+    await cart.save();
+    throw new ApiError(400, "Product is no longer available. Removed from cart.");
+  }
+
+  // ✅ Validate stock availability
+  if (quantity > product.stock) {
+    throw new ApiError(
+      400,
+      `Only ${product.stock} items available in stock.`
+    );
+  }
 
   item.quantity = quantity;
   await cart.save();

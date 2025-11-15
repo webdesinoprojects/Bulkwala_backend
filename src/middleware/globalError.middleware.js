@@ -2,6 +2,19 @@ import { ApiError } from "../utils/ApiError.js";
 
 // Global Error Handling Middleware
 export const globalErrorHandler = (err, _req, res, _next) => {
+  // Determine status code (simplified logic)
+  const statusCode = err.statusCode || err.status || 500;
+  
+  // Don't log 401 errors as they're expected when users aren't authenticated
+  if (statusCode === 401) {
+    return res.status(401).json({
+      success: false,
+      message: err.message || "Unauthorized",
+      ...(process.env.NODE_ENV === "development" && { stack: err.stack }),
+    });
+  }
+
+  // Log other errors
   console.error("Global Error:", err);
 
   // If the error is an instance of ApiError

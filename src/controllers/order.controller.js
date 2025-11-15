@@ -28,19 +28,87 @@ const createOrder = asyncHandler(async (req, res) => {
 
   const cart = await Cart.findOne({ user: userId }).populate(
     "items.product",
-    "title price discountPrice"
+    "title price discountPrice stock isActive isDeleted"
   );
 
   if (!cart || cart.items.length === 0) {
     throw new ApiError(400, "Your cart is empty");
   }
 
-  // Calculate the prices manually
-  const itemsPrice = cart.items.reduce((acc, item) => {
-    const price =
-      item.product?.discountPrice && item.product.discountPrice > 0
-        ? item.product.discountPrice
-        : item.product?.price || 0;
+  // ✅ Validate all products exist, are active, and have sufficient stock
+  const validItems = [];
+  const invalidProducts = [];
+  const priceChangedProducts = [];
+  const outOfStockProducts = [];
+
+  for (const item of cart.items) {
+    const product = item.product;
+
+    // Check if product exists
+    if (!product) {
+      invalidProducts.push({ productId: item.product?.toString() || "unknown", reason: "Product not found" });
+      continue;
+    }
+
+    // Check if product is deleted or inactive
+    if (product.isDeleted || !product.isActive) {
+      invalidProducts.push({ productId: product._id.toString(), reason: "Product is no longer available" });
+      continue;
+    }
+
+    // Check stock availability
+    if (item.quantity > product.stock) {
+      if (product.stock === 0) {
+        outOfStockProducts.push({ productId: product._id.toString(), name: product.title, requested: item.quantity, available: 0 });
+      } else {
+        outOfStockProducts.push({ productId: product._id.toString(), name: product.title, requested: item.quantity, available: product.stock });
+      }
+      continue;
+    }
+
+    // ✅ Check if price has changed (compare with current price)
+    const currentPrice = product.discountPrice && product.discountPrice > 0 
+      ? product.discountPrice 
+      : product.price;
+    
+    // Get price that was likely used in cart (we'll use current price, but flag if different)
+    // Note: We don't store original cart price, so we'll use current price but could add warning
+    validItems.push({
+      ...item.toObject(),
+      currentPrice,
+    });
+  }
+
+  // ✅ Remove invalid products from cart
+  if (invalidProducts.length > 0 || outOfStockProducts.length > 0) {
+    cart.items = validItems.map(item => ({
+      product: item.product._id,
+      quantity: item.quantity
+    }));
+    await cart.save();
+  }
+
+  // ✅ Return error if no valid items remain
+  if (validItems.length === 0) {
+    let errorMessage = "Cannot place order: ";
+    if (invalidProducts.length > 0) {
+      errorMessage += `${invalidProducts.length} product(s) are no longer available. `;
+    }
+    if (outOfStockProducts.length > 0) {
+      errorMessage += `${outOfStockProducts.length} product(s) are out of stock. `;
+    }
+    errorMessage += "Your cart has been updated. Please review and try again.";
+    throw new ApiError(400, errorMessage);
+  }
+
+  // ✅ Warn about removed products (but continue with valid items)
+  if (invalidProducts.length > 0 || outOfStockProducts.length > 0) {
+    // We'll include this in the response message
+  }
+
+  // ✅ Calculate the prices manually using valid items
+  const itemsPrice = validItems.reduce((acc, item) => {
+    const price = item.currentPrice || 0;
     return acc + price * item.quantity;
   }, 0);
 
@@ -64,8 +132,9 @@ const createOrder = asyncHandler(async (req, res) => {
     );
   }
 
-  // ✅ Prepaid discount only for online payments
-  const prepaidDiscount = paymentMode === "online" ? 30 : 0;
+  // ✅ Prepaid discount for all online payment modes (card, upi, netbanking, online)
+  const onlinePaymentModes = ["card", "upi", "netbanking", "online"];
+  const prepaidDiscount = onlinePaymentModes.includes(paymentMode) ? 30 : 0;
 
   // ✅ Combine all discounts
   const totalDiscount =
@@ -78,14 +147,11 @@ const createOrder = asyncHandler(async (req, res) => {
 
   totalPrice = Math.max(itemsPrice + shippingPrice - totalDiscount, 0);
 
-  // Create the final products array
-  const finalProducts = cart.items.map((item) => {
+  // ✅ Create the final products array from valid items
+  const finalProducts = validItems.map((item) => {
     const product = item.product._id;
     const quantity = item.quantity;
-    const priceAtPurchase =
-      item.product?.discountPrice && item.product.discountPrice > 0
-        ? item.product.discountPrice
-        : item.product?.price || 0;
+    const priceAtPurchase = item.currentPrice || 0;
 
     return { product, quantity, priceAtPurchase };
   });
@@ -125,10 +191,16 @@ const createOrder = asyncHandler(async (req, res) => {
       "title sku price discountPrice gstSlab images"
     );
 
+    // ✅ Include warning message if products were removed
+    let message = "Pickup order placed successfully";
+    if (invalidProducts.length > 0 || outOfStockProducts.length > 0) {
+      message += `. Note: ${invalidProducts.length + outOfStockProducts.length} product(s) were removed from your cart as they are no longer available.`;
+    }
+
     return res
       .status(201)
       .json(
-        new ApiResponse(201, populatedOrder, "Pickup order placed successfully")
+        new ApiResponse(201, populatedOrder, message)
       );
   }
 
@@ -174,14 +246,16 @@ const createOrder = asyncHandler(async (req, res) => {
       "title sku price discountPrice gstSlab images"
     );
 
+    // ✅ Include warning message if products were removed
+    let message = "COD order placed and shipment created successfully";
+    if (invalidProducts.length > 0 || outOfStockProducts.length > 0) {
+      message += `. Note: ${invalidProducts.length + outOfStockProducts.length} product(s) were removed from your cart as they are no longer available.`;
+    }
+
     return res
       .status(201)
       .json(
-        new ApiResponse(
-          201,
-          populatedOrder,
-          "COD order placed and shipment created successfully"
-        )
+        new ApiResponse(201, populatedOrder, message)
       );
   }
 
@@ -229,10 +303,12 @@ const createOrder = asyncHandler(async (req, res) => {
 const verifyRazorpayPayment = asyncHandler(async (req, res) => {
   const { razorpay_order_id, razorpay_payment_id, razorpay_signature } =
     req.body;
-  console.log(
-    "Incoming body for verification from order controller:",
-    req.body
-  );
+  if (process.env.NODE_ENV === "development") {
+    console.log(
+      "Incoming body for verification from order controller:",
+      req.body
+    );
+  }
 
   const body = razorpay_order_id + "|" + razorpay_payment_id;
   const expectedSignature = crypto
@@ -583,7 +659,9 @@ const delhiveryWebhook = asyncHandler(async (req, res) => {
   }
 
   const body = req.body || {};
-  console.log("📦 Delhivery Webhook Received:", JSON.stringify(body));
+  if (process.env.NODE_ENV === "development") {
+    console.log("📦 Delhivery Webhook Received:", JSON.stringify(body));
+  }
 
   // Normalize structure (Delhivery payloads vary a lot)
   const shipment =
@@ -638,9 +716,13 @@ const delhiveryWebhook = asyncHandler(async (req, res) => {
     if (scanTime) order.lastShipmentEventAt = new Date(scanTime);
 
     await order.save();
-    console.log(`✅ Order ${order._id} updated → ${mapped} (${rawStatus})`);
+    if (process.env.NODE_ENV === "development") {
+      console.log(`✅ Order ${order._id} updated → ${mapped} (${rawStatus})`);
+    }
   } else {
-    console.log(`ℹ️ No status change for ${awb} (${rawStatus})`);
+    if (process.env.NODE_ENV === "development") {
+      console.log(`ℹ️ No status change for ${awb} (${rawStatus})`);
+    }
   }
 
   return res.status(200).json({ success: true });
@@ -676,7 +758,9 @@ const razorpayWebhook = asyncHandler(async (req, res) => {
   const razorpayPaymentId = paymentEntity.id;
   const paymentStatus = paymentEntity.status;
 
-  console.log("💳 Webhook Event:", event, "| Status:", paymentStatus);
+  if (process.env.NODE_ENV === "development") {
+    console.log("💳 Webhook Event:", event, "| Status:", paymentStatus);
+  }
 
   const payment = await Payment.findOne({ razorpayOrderId });
   if (!payment) {
@@ -709,12 +793,18 @@ const razorpayWebhook = asyncHandler(async (req, res) => {
   if (order) {
     order.paymentStatus = mappedStatus;
     await order.save();
-    console.log(`✅ Order ${order._id} payment → ${mappedStatus}`);
+    if (process.env.NODE_ENV === "development") {
+      console.log(`✅ Order ${order._id} payment → ${mappedStatus}`);
+    }
   } else {
-    console.log("ℹ️ No order linked to this payment yet");
+    if (process.env.NODE_ENV === "development") {
+      console.log("ℹ️ No order linked to this payment yet");
+    }
   }
 
-  console.log(`✅ Razorpay Webhook processed: ${mappedStatus}`);
+  if (process.env.NODE_ENV === "development") {
+    console.log(`✅ Razorpay Webhook processed: ${mappedStatus}`);
+  }
   return res.status(200).json({ success: true });
 });
 
