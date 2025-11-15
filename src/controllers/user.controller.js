@@ -154,7 +154,12 @@ const loginUser = asyncHandler(async (req, res) => {
     .status(200)
     .cookie("accessToken", accessToken, cookieOptions)
     .cookie("refreshToken", refreshToken, cookieOptions)
-    .json(new ApiResponse(200, user, "User logged in successfully"));
+    .json({
+      message: "User logged in successfully",
+      data: user,
+      accessToken,
+      refreshToken,
+    });
 });
 
 const sendOtpLogin = asyncHandler(async (req, res) => {
