@@ -2,7 +2,7 @@ import User from "../models/user.model.js";
 import { ApiError } from "../utils/ApiError.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
-import { cookieOptions } from "../utils/constant.js";
+import { cookieOptions, getCookieOptions } from "../utils/constant.js";
 import crypto from "crypto";
 import {
   sendResetPasswordEmail,
@@ -150,16 +150,14 @@ const loginUser = asyncHandler(async (req, res) => {
   );
   await user.save({ validateBeforeSave: false });
 
+  // ✅ Use dynamic cookie options for Safari compatibility
+  const options = getCookieOptions(req);
+
   return res
     .status(200)
-    .cookie("accessToken", accessToken, cookieOptions)
-    .cookie("refreshToken", refreshToken, cookieOptions)
-    .json({
-      message: "User logged in successfully",
-      data: user,
-      accessToken,
-      refreshToken,
-    });
+    .cookie("accessToken", accessToken, options)
+    .cookie("refreshToken", refreshToken, options)
+    .json(new ApiResponse(200, user, "User logged in successfully"));
 });
 
 const sendOtpLogin = asyncHandler(async (req, res) => {
@@ -197,10 +195,13 @@ const verifyOtpLogin = asyncHandler(async (req, res) => {
 
   await user.save({ validateBeforeSave: false });
 
+  // ✅ Use dynamic cookie options for Safari compatibility
+  const options = getCookieOptions(req);
+
   return res
     .status(200)
-    .cookie("accessToken", accessToken, cookieOptions)
-    .cookie("refreshToken", refreshToken, cookieOptions)
+    .cookie("accessToken", accessToken, options)
+    .cookie("refreshToken", refreshToken, options)
     .json(new ApiResponse(200, user, "Login successful via OTP"));
 });
 
@@ -424,19 +425,25 @@ const refreshUserToken = asyncHandler(async (req, res) => {
   user.refreshToken = refreshToken;
   await user.save({ validateBeforeSave: false });
 
+  // ✅ Use dynamic cookie options for Safari compatibility
+  const options = getCookieOptions(req);
+
   return res
     .status(200)
-    .cookie("accessToken", accessToken, cookieOptions)
-    .cookie("refreshToken", refreshToken, cookieOptions)
+    .cookie("accessToken", accessToken, options)
+    .cookie("refreshToken", refreshToken, options)
     .json(new ApiResponse(200, null, "Access token refreshed successfully"));
 });
 
-const logoutUser = asyncHandler(async (_req, res) => {
+const logoutUser = asyncHandler(async (req, res) => {
   // const accessToken = req.cookies.accessToken;
   // const refreshToken = req.cookies.refreshToken;
 
-  res.clearCookie("accessToken", cookieOptions);
-  res.clearCookie("refreshToken", cookieOptions);
+  // ✅ Use dynamic cookie options for Safari compatibility (must match when setting)
+  const options = getCookieOptions(req);
+
+  res.clearCookie("accessToken", options);
+  res.clearCookie("refreshToken", options);
 
   return res
     .status(200)

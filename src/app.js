@@ -49,9 +49,18 @@ app.use(
 
       return callback(new Error('CORS blocked: ' + origin));
     },
-    credentials: true,
+    credentials: true, // ✅ Required for cookies
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
+    // ✅ Add headers that Safari might need
+    allowedHeaders: [
+      'Content-Type', 
+      'Authorization',
+      'X-Requested-With',
+      'Accept',
+      'Origin',
+    ],
+    // ✅ Explicitly expose Set-Cookie header (helps with Safari)
+    exposedHeaders: ['Set-Cookie'],
   })
 );
 
