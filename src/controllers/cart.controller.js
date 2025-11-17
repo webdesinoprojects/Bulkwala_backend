@@ -15,8 +15,10 @@ const addToCart = asyncHandler(async (req, res) => {
   // ✅ Validate product exists, is active, and not deleted
   const product = await Product.findById(productId);
   if (!product) throw new ApiError(404, "Product not found");
-  if (product.isDeleted) throw new ApiError(400, "Product is no longer available");
-  if (!product.isActive) throw new ApiError(400, "Product is currently unavailable");
+  if (product.isDeleted)
+    throw new ApiError(400, "Product is no longer available");
+  if (!product.isActive)
+    throw new ApiError(400, "Product is currently unavailable");
 
   // ✅ Validate stock availability
   const requestedQuantity = quantity || 1;
@@ -40,10 +42,10 @@ const addToCart = asyncHandler(async (req, res) => {
   // ✅ Check if total quantity exceeds available stock
   if (totalQuantity > product.stock) {
     const availableStock = product.stock;
-    const existingQty = cart?.items.find(
-      (item) => item.product.toString() === productId
-    )?.quantity || 0;
-    
+    const existingQty =
+      cart?.items.find((item) => item.product.toString() === productId)
+        ?.quantity || 0;
+
     if (existingQty > 0) {
       throw new ApiError(
         400,
@@ -119,6 +121,12 @@ const getCart = asyncHandler(async (req, res) => {
 
   // ✅ Return empty cart structure instead of 404 (better UX)
   if (!cart || cart.items.length === 0) {
+    if (cart && cart.items.length === 0) {
+      cart.referralCode = null;
+      cart.referralDiscount = 0;
+      await cart.save();
+    }
+
     return res.status(200).json(
       new ApiResponse(
         200,
@@ -148,7 +156,7 @@ const getCart = asyncHandler(async (req, res) => {
 
   for (const item of cart.items) {
     const product = item.product;
-    
+
     // Skip if product is null (deleted)
     if (!product) {
       removedProducts.push(item.product?.toString() || "unknown");
@@ -210,7 +218,7 @@ const getCart = asyncHandler(async (req, res) => {
           referralCode: null,
           referralDiscount: 0,
         },
-        removedProducts.length > 0 
+        removedProducts.length > 0
           ? "Some products are no longer available. Cart has been updated."
           : "Cart is empty"
       )
@@ -343,15 +351,15 @@ const updateCartItem = asyncHandler(async (req, res) => {
       (item) => item.product.toString() !== productId
     );
     await cart.save();
-    throw new ApiError(400, "Product is no longer available. Removed from cart.");
+    throw new ApiError(
+      400,
+      "Product is no longer available. Removed from cart."
+    );
   }
 
   // ✅ Validate stock availability
   if (quantity > product.stock) {
-    throw new ApiError(
-      400,
-      `Only ${product.stock} items available in stock.`
-    );
+    throw new ApiError(400, `Only ${product.stock} items available in stock.`);
   }
 
   item.quantity = quantity;
@@ -377,6 +385,8 @@ const removeFromCart = asyncHandler(async (req, res) => {
   if (cart.items.length === 0) {
     cart.coupon = null;
     cart.discount = 0;
+    cart.referralCode = null;
+    cart.referralDiscount = 0;
   }
 
   await cart.save();
@@ -395,6 +405,10 @@ const clearCart = asyncHandler(async (req, res) => {
   cart.items = [];
   cart.discount = 0;
   cart.coupon = null;
+
+  // ⭐ FIX: reset referral completely
+  cart.referralCode = null;
+  cart.referralDiscount = 0;
 
   await cart.save();
 
