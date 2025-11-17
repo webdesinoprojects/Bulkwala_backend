@@ -152,6 +152,7 @@ const loginUser = asyncHandler(async (req, res) => {
 
   // ✅ Use dynamic cookie options for Safari compatibility
   const options = getCookieOptions(req);
+  console.log("Cookie options:", options);
 
   return res
     .status(200)
