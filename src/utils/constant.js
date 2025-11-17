@@ -1,25 +1,13 @@
 // ===== UNIVERSAL COOKIE HANDLER =====
 export const getCookieOptions = (req) => {
   const isProd = process.env.NODE_ENV === "production";
-  const origin = req.headers.origin || "";
-
-  let domain = undefined;
-
-  // ✔ Apply domain only when the frontend is bulkwala.com
-  if (
-    origin === "https://bulkwala.com" ||
-    origin === "https://www.bulkwala.com"
-  ) {
-    domain = ".bulkwala.com";
-  }
 
   return {
     httpOnly: true,
-    secure: isProd,
-    sameSite: "None",
-    domain: domain, // dynamic
-    path: "/",
-    maxAge: 7 * 24 * 60 * 60 * 1000,
+    secure: isProd, // required for SameSite=None
+    sameSite: "None", // allows cross-site cookies (bulkwala.com → render.com)
+    path: "/", // accessible everywhere
+    maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
   };
 };
 
