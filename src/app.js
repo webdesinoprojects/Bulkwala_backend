@@ -22,31 +22,28 @@ import { globalErrorHandler } from "./middleware/globalError.middleware.js";
 const app = express();
 app.set("trust proxy", 1);
 
-const frontendURL = process.env.FRONTEND_URL
-  ? process.env.FRONTEND_URL.split(",").map((url) => url.trim())
-  : ["http://localhost:5173"];
+// Parse array from .env
+let allowedOrigins = [];
+
+try {
+  allowedOrigins = JSON.parse(process.env.FRONTEND_URL);
+} catch (err) {
+  console.error("❌ FRONTEND_URL is not a valid JSON array");
+  allowedOrigins = ["http://localhost:5173"];
+}
 
 app.use(
   cors({
-    origin: function (origin, callback) {
-      if (!origin) return callback(null, true); // Mobile apps / Postman
+    origin: (origin, callback) => {
+      if (!origin) return callback(null, true); // Mobile apps / Postman allowed
 
-      if (frontendURL.includes(origin)) {
+      if (allowedOrigins.includes(origin)) {
         return callback(null, true);
       }
 
-      // Allow localhost flexible ports in development
-      if (
-        process.env.NODE_ENV === "development" &&
-        origin.includes("localhost")
-      ) {
-        return callback(null, true);
-      }
-
-      return callback(new Error("Blocked by CORS: " + origin));
+      return callback(new Error("❌ CORS blocked: " + origin));
     },
-
-    credentials: true, // VERY IMPORTANT
+    credentials: true,
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allowedHeaders: [
       "Content-Type",
@@ -55,7 +52,7 @@ app.use(
       "Accept",
       "Origin",
     ],
-    exposedHeaders: ["Set-Cookie"], // For Safari
+    exposedHeaders: ["Set-Cookie"],
   })
 );
 
