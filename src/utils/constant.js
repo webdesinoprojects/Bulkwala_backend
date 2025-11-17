@@ -5,16 +5,16 @@ export const getCookieOptions = (req) => {
 
   let domain = undefined;
 
-  // Only apply domain for bulkwala.com (not vercel, not localhost)
-  if (origin.endsWith("bulkwala.com") || origin.endsWith("www.bulkwala.com")) {
+  // Only set domain when frontend is bulkwala.com or www.bulkwala.com
+  if (origin.includes("bulkwala.com") && !origin.includes("vercel.app")) {
     domain = ".bulkwala.com";
   }
 
   return {
     httpOnly: true,
-    secure: isProd,
-    sameSite: "None",
-    domain: domain,
+    secure: isProd, // must be true on Render
+    sameSite: "None", // required for cross-site cookies
+    domain: domain, // only for bulkwala.com
     path: "/",
     maxAge: 7 * 24 * 60 * 60 * 1000,
   };
