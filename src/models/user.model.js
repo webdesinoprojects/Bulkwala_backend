@@ -2,6 +2,33 @@ import mongoose, { Schema } from "mongoose";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import { availableUserRoles, userRoleEnum } from "../utils/constant.js";
+
+const addressSchema = new Schema(
+  {
+    name: { type: String, trim: true },
+    phone: { type: String, trim: true },
+    street: { type: String, trim: true },
+    city: { type: String, trim: true },
+    state: { type: String, trim: true },
+    postalCode: { type: String, trim: true },
+    country: { type: String, default: "India" },
+  },
+  { _id: false }
+);
+
+const sellerSchema = new Schema(
+  {
+    businessName: String,
+    gstNumber: String,
+    pickupAddress: String,
+    bankName: String,
+    accountNumber: String,
+    ifsc: String,
+    approved: { type: Boolean, default: false },
+  },
+  { _id: false }
+);
+
 const userSchema = new Schema(
   {
     name: {
@@ -36,17 +63,7 @@ const userSchema = new Schema(
       optional: true,
     },
 
-    address: [
-      {
-        name: { type: String, required: true, trim: true },
-        phone: { type: String, required: true, trim: true },
-        street: { type: String, required: true },
-        city: { type: String, required: true },
-        state: { type: String, required: true },
-        postalCode: { type: String, required: true },
-        country: { type: String, required: true, default: "India" },
-      },
-    ],
+    address: addressSchema,
 
     phone: {
       type: String,
@@ -62,20 +79,14 @@ const userSchema = new Schema(
     },
     refreshToken: String,
     refreshTokenExpireAt: Date,
+
     resetPasswordToken: String,
     resetPasswordExpiresAt: Date,
+
     verificationToken: String,
     verificationTokenExpiresAt: Date,
 
-    sellerDetails: {
-      businessName: String,
-      gstNumber: String,
-      pickupAddress: String,
-      bankName: String,
-      accountNumber: String,
-      ifsc: String,
-      approved: { type: Boolean, default: false },
-    },
+    sellerDetails: sellerSchema,
   },
 
   { timestamps: true }

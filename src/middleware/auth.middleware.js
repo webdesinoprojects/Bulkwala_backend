@@ -8,11 +8,15 @@ const isLoggedIn = async (req, _res, next) => {
       return next(new ApiError(401, "Unauthorized"));
     }
 
-    const decodeToken = jwt.verify(
-      accessToken,
-      process.env.ACCESS_TOKEN_SECRET
-    );
-    req.user = decodeToken;
+    let decoded;
+    try {
+      decoded = jwt.verify(accessToken, process.env.ACCESS_TOKEN_SECRET);
+    } catch (error) {
+      // JWT expired OR malformed → allow frontend to refresh
+      return next(new ApiError(401, "Unauthorized"));
+    }
+
+    req.user = decoded;
     next();
   } catch (error) {
     return next(new ApiError(401, "Unauthorized Access"));

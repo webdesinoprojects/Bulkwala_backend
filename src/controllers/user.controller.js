@@ -2,7 +2,7 @@ import User from "../models/user.model.js";
 import { ApiError } from "../utils/ApiError.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
-import { cookieOptions, getCookieOptions } from "../utils/constant.js";
+import { getCookieOptions } from "../utils/constant.js";
 import crypto from "crypto";
 import {
   sendResetPasswordEmail,
@@ -260,7 +260,7 @@ const getuserProfile = asyncHandler(async (req, res) => {
   }
   return res
     .status(200)
-    .json(new ApiResponse(200, user, "User found successfully"));
+    .json(new ApiResponse(200, user, "User profile fetched"));
 });
 
 const verifyUser = asyncHandler(async (req, res) => {
@@ -329,7 +329,7 @@ const forgetPassword = asyncHandler(async (req, _res) => {
   // Generate a secure reset token
   const resetPasswordToken = crypto.randomBytes(32).toString("hex");
   const resetPasswordExpiresAt = new Date(
-    Date.now() + process.env.RESET_PASSWORD_EXPIRY
+    Date.now() + ms(process.env.RESET_PASSWORD_EXPIRY)
   );
 
   // Save the token and its expiry to the user in the database
@@ -379,7 +379,7 @@ const changePassword = asyncHandler(async (req, res) => {
   // Generate a secure reset token
   const resetPasswordToken = crypto.randomBytes(32).toString("hex");
   const resetPasswordExpiresAt = new Date(
-    Date.now() + process.env.RESET_PASSWORD_EXPIRY
+    Date.now() + ms(process.env.RESET_PASSWORD_EXPIRY)
   );
 
   // Save the token and its expiry to the user in the database
@@ -423,16 +423,20 @@ const refreshUserToken = asyncHandler(async (req, res) => {
 
   // Database mein naya refreshToken save karein
   user.refreshToken = refreshToken;
+  user.refreshTokenExpireAt = new Date(
+    Date.now() + ms(process.env.REFRESH_TOKEN_EXPIRES_IN)
+  );
   await user.save({ validateBeforeSave: false });
 
   // ✅ Use dynamic cookie options for Safari compatibility
   const options = getCookieOptions(req);
-
   return res
     .status(200)
     .cookie("accessToken", accessToken, options)
     .cookie("refreshToken", refreshToken, options)
-    .json(new ApiResponse(200, null, "Access token refreshed successfully"));
+    .json({
+      success: true,
+    });
 });
 
 const logoutUser = asyncHandler(async (req, res) => {
@@ -441,6 +445,12 @@ const logoutUser = asyncHandler(async (req, res) => {
 
   // ✅ Use dynamic cookie options for Safari compatibility (must match when setting)
   const options = getCookieOptions(req);
+  const user = await User.findById(req.user._id);
+  if (user) {
+    user.refreshToken = null;
+    user.refreshTokenExpireAt = null;
+    await user.save({ validateBeforeSave: false });
+  }
 
   res.clearCookie("accessToken", options);
   res.clearCookie("refreshToken", options);

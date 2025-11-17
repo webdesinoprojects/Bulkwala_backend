@@ -34,12 +34,12 @@ export const updateuserSchema = z.object({
 
 export const updateaddressSchema = z.object({
   name: z.string().min(2, "Name is required"),
-  phone: z.string().min(10, "Phone must be at least 10 digits"),
+  phone: z.string().regex(/^[0-9]{10}$/, "Phone must be 10 digits"),
   street: z.string().min(3, "Street is required"),
   city: z.string().min(2, "City is required"),
   state: z.string().min(2, "State is required"),
-  postalCode: z.string().min(4, "Postal Code is required"),
-  country: z.string().default("India"),
+  postalCode: z.string().regex(/^[0-9]{6}$/, "Postal Code must be 6 digits"),
+  country: z.string().optional().default("India"),
 });
 
 export const loginuserSchema = z.object({
