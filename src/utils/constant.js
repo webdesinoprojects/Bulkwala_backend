@@ -1,14 +1,12 @@
 // ===== UNIVERSAL COOKIE HANDLER =====
 export const getCookieOptions = (req) => {
   const isProd = process.env.NODE_ENV === "production";
-  const host = req?.headers?.host || "";
+  const origin = req.headers.origin || "";
 
   let domain = undefined;
 
-  if (
-    isProd &&
-    (host.endsWith("bulkwala.com") || host.endsWith("www.bulkwala.com"))
-  ) {
+  // Only apply domain for bulkwala.com (not vercel, not localhost)
+  if (origin.endsWith("bulkwala.com") || origin.endsWith("www.bulkwala.com")) {
     domain = ".bulkwala.com";
   }
 
