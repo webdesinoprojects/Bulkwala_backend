@@ -31,8 +31,8 @@ import {
   resetPasswordSchema,
   changePasswordSchema,
   sellerApplicationSchema,
-  updateaddressSchema,
   sellerRegistrationSchema,
+  updateAddressSchema,
 } from "../validators/user.Schema.js";
 import { isAdmin, isLoggedIn } from "../middleware/auth.middleware.js";
 
@@ -53,7 +53,7 @@ router
 router.route("/profile").get(isLoggedIn, getuserProfile);
 router
   .route("/address")
-  .put(isLoggedIn, validateData(updateaddressSchema), updateAddress);
+  .put(isLoggedIn, validateData(updateAddressSchema), updateAddress);
 router.route("/address/:index").delete(isLoggedIn, deleteAddress);
 router.route("/verify/:userid").post(verifyUser);
 router.route("/resend-verification/:userid").post(resendVerifyCode);

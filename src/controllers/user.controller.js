@@ -226,29 +226,34 @@ const updateUser = asyncHandler(async (req, res) => {
 });
 
 const updateAddress = asyncHandler(async (req, res) => {
-  const userid = req.user._id;
-  const { name, phone, street, city, state, postalCode, country } = req.body;
-  const user = await User.findById(userid);
+  const userId = req.user._id;
+  const { address, index } = req.body;
 
-  if (!user) {
-    throw new ApiError(404, "User not found");
+  const user = await User.findById(userId);
+  if (!user) throw new ApiError(404, "User not found");
+
+  // Ensure array exists
+  if (!Array.isArray(user.addresses)) {
+    user.addresses = [];
   }
-  // Add new address to the list
-  user.addresses.push({
-    name,
-    phone,
-    street,
-    city,
-    state,
-    postalCode,
-    country,
-  });
+
+  // If index exists => UPDATE
+  if (index !== undefined && index !== null) {
+    if (index < 0 || index >= user.addresses.length) {
+      throw new ApiError(400, "Invalid address index");
+    }
+
+    user.addresses[index] = address;
+  } else {
+    // Else => ADD NEW
+    user.addresses.push(address);
+  }
 
   await user.save();
 
   return res
     .status(200)
-    .json(new ApiResponse(200, user, "Address updated successfully"));
+    .json(new ApiResponse(200, user, "Address saved successfully"));
 });
 
 const deleteAddress = asyncHandler(async (req, res) => {
