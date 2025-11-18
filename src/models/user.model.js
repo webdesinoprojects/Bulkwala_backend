@@ -63,7 +63,7 @@ const userSchema = new Schema(
       optional: true,
     },
 
-    address: addressSchema,
+    addresses: [addressSchema], // <-- NOW MULTIPLE
 
     phone: {
       type: String,

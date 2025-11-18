@@ -233,7 +233,8 @@ const updateAddress = asyncHandler(async (req, res) => {
   if (!user) {
     throw new ApiError(404, "User not found");
   }
-  user.address = {
+  // Add new address to the list
+  user.addresses.push({
     name,
     phone,
     street,
@@ -241,13 +242,36 @@ const updateAddress = asyncHandler(async (req, res) => {
     state,
     postalCode,
     country,
-  };
+  });
 
   await user.save();
 
   return res
     .status(200)
     .json(new ApiResponse(200, user, "Address updated successfully"));
+});
+
+const deleteAddress = asyncHandler(async (req, res) => {
+  const userId = req.user._id;
+  const { index } = req.params;
+
+  const user = await User.findById(userId);
+  if (!user) throw new ApiError(404, "User not found");
+
+  if (!user.addresses || user.addresses.length === 0) {
+    throw new ApiError(400, "No addresses available to delete");
+  }
+
+  if (index < 0 || index >= user.addresses.length) {
+    throw new ApiError(400, "Invalid address index");
+  }
+
+  user.addresses.splice(index, 1);
+  await user.save();
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, user, "Address deleted successfully"));
 });
 
 const getuserProfile = asyncHandler(async (req, res) => {
@@ -566,6 +590,7 @@ export {
   updateUser,
   getuserProfile,
   updateAddress,
+  deleteAddress,
   verifyUser,
   resendVerifyCode,
   forgetPassword,

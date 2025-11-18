@@ -20,6 +20,7 @@ import {
   sendOtpLogin,
   verifyOtpLogin,
   resendVerifyCode,
+  deleteAddress,
 } from "../controllers/user.controller.js";
 import { validateData } from "../middleware/validate.js";
 import {
@@ -53,6 +54,7 @@ router.route("/profile").get(isLoggedIn, getuserProfile);
 router
   .route("/address")
   .put(isLoggedIn, validateData(updateaddressSchema), updateAddress);
+router.route("/address/:index").delete(isLoggedIn, deleteAddress);
 router.route("/verify/:userid").post(verifyUser);
 router.route("/resend-verification/:userid").post(resendVerifyCode);
 router
