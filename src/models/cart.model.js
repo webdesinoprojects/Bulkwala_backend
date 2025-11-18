@@ -9,7 +9,7 @@ const cartItemSchema = new mongoose.Schema(
     },
     quantity: { type: Number, default: 1, min: 1 },
   },
-  { _id: false }
+  { _id: true }
 );
 
 const cartSchema = new mongoose.Schema(

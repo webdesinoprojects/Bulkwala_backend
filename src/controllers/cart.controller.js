@@ -1,12 +1,12 @@
 import Cart from "../models/cart.model.js";
 import Product from "../models/product.model.js";
+import Coupon from "../models/coupon.model.js";
+import Offer from "../models/offer.model.js";
+import Referral from "../models/referral.model.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import { ApiError } from "../utils/ApiError.js";
 import { calculateCartTotals } from "../utils/cartUtils.js";
-import Coupon from "../models/coupon.model.js";
-import Offer from "../models/offer.model.js";
-import Referral from "../models/referral.model.js";
 
 const addToCart = asyncHandler(async (req, res) => {
   const userId = req.user._id;
@@ -114,10 +114,11 @@ const addToCart = asyncHandler(async (req, res) => {
 const getCart = asyncHandler(async (req, res) => {
   const userId = req.user._id;
 
-  const cart = await Cart.findOne({ user: userId }).populate(
-    "items.product",
-    "title price discountPrice images description stock isActive isDeleted"
-  );
+  const cart = await Cart.findOne({ user: userId }).populate({
+    path: "items.product",
+    select:
+      "title price discountPrice images description stock isActive isDeleted",
+  });
 
   // ✅ Return empty cart structure instead of 404 (better UX)
   if (!cart || cart.items.length === 0) {
