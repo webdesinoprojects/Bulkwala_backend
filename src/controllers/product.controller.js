@@ -154,6 +154,11 @@ const getProducts = asyncHandler(async (req, res) => {
 
   const filter = { isDeleted: false };
 
+  // If admin/seller is logged in → show only their own products
+  if (req.user && (req.user.role === "admin" || req.user.role === "seller")) {
+    filter.createdBy = req.user._id;
+  }
+
   // ✅ Category (ObjectId)
   if (category) filter.category = category;
 
@@ -241,14 +246,9 @@ const updateProduct = asyncHandler(async (req, res) => {
   if (!product) throw new ApiError(404, "Product not found");
 
   //  Ownership check
-  if (
-    req.user.role !== "admin" &&
-    product.createdBy.toString() !== req.user._id.toString()
-  ) {
-    throw new ApiError(
-      403,
-      "Unauthorized: You can only update your own products"
-    );
+  // Admin & Seller can ONLY edit their own products
+  if (product.createdBy.toString() !== req.user._id.toString()) {
+    throw new ApiError(403, "You can only update your own products");
   }
 
   //  Slug check
@@ -393,14 +393,9 @@ const deleteProduct = asyncHandler(async (req, res) => {
   if (!product) throw new ApiError(404, "Product not found or already deleted");
 
   //  Ownership check
-  if (
-    req.user.role !== "admin" &&
-    product.createdBy.toString() !== req.user._id.toString()
-  ) {
-    throw new ApiError(
-      403,
-      "Unauthorized: You can only delete your own products"
-    );
+  // Admin & Seller can ONLY delete their own products
+  if (product.createdBy.toString() !== req.user._id.toString()) {
+    throw new ApiError(403, "You can only delete your own products");
   }
 
   product.isDeleted = true;
