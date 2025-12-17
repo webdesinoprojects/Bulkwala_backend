@@ -1,9 +1,20 @@
 import jwt from "jsonwebtoken";
 import { ApiError } from "../utils/ApiError.js";
 import { userRoleEnum } from "../utils/constant.js";
+
 const isLoggedIn = async (req, _res, next) => {
   try {
-    const accessToken = req.cookies.accessToken;
+    // 📱 iOS Fallback: Check multiple sources for token
+    let accessToken = req.cookies.accessToken;
+    
+    // Check Authorization header (Bearer token)
+    if (!accessToken && req.headers.authorization) {
+      const authHeader = req.headers.authorization;
+      if (authHeader.startsWith("Bearer ")) {
+        accessToken = authHeader.slice(7); // Remove "Bearer " prefix
+      }
+    }
+
     if (!accessToken) {
       return next(new ApiError(401, "Unauthorized"));
     }

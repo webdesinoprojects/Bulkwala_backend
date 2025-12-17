@@ -1,6 +1,19 @@
 // ===== UNIVERSAL COOKIE HANDLER =====
 export const getCookieOptions = (req) => {
   const isProd = process.env.NODE_ENV === "production";
+  const isIOS = req.headers["user-agent"]?.toLowerCase().includes("iphone") || 
+                req.headers["user-agent"]?.toLowerCase().includes("ipad");
+
+  // iOS has strict cookie policies, so we use less restrictive settings for iOS
+  if (isIOS) {
+    return {
+      httpOnly: false, // Allow JS access for iOS fallback
+      secure: isProd,
+      sameSite: "Lax", // More permissive for iOS
+      path: "/",
+      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+    };
+  }
 
   return {
     httpOnly: true,

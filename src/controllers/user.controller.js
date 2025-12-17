@@ -152,13 +152,19 @@ const loginUser = asyncHandler(async (req, res) => {
 
   // ✅ Use dynamic cookie options for Safari compatibility
   const options = getCookieOptions(req);
-  console.log("Cookie options:", options);
+
+  // 📱 iOS Fallback: Include tokens in response body for iOS apps
+  const responseData = {
+    ...user.toObject(),
+    accessToken, // iOS fallback
+    refreshToken, // iOS fallback
+  };
 
   return res
     .status(200)
     .cookie("accessToken", accessToken, options)
     .cookie("refreshToken", refreshToken, options)
-    .json(new ApiResponse(200, user, "User logged in successfully"));
+    .json(new ApiResponse(200, responseData, "User logged in successfully"));
 });
 
 const sendOtpLogin = asyncHandler(async (req, res) => {
@@ -199,11 +205,18 @@ const verifyOtpLogin = asyncHandler(async (req, res) => {
   // ✅ Use dynamic cookie options for Safari compatibility
   const options = getCookieOptions(req);
 
+  // 📱 iOS Fallback: Include tokens in response body for iOS apps
+  const responseData = {
+    ...user.toObject(),
+    accessToken, // iOS fallback
+    refreshToken, // iOS fallback
+  };
+
   return res
     .status(200)
     .cookie("accessToken", accessToken, options)
     .cookie("refreshToken", refreshToken, options)
-    .json(new ApiResponse(200, user, "Login successful via OTP"));
+    .json(new ApiResponse(200, responseData, "Login successful via OTP"));
 });
 
 const updateUser = asyncHandler(async (req, res) => {
@@ -434,12 +447,18 @@ const changePassword = asyncHandler(async (req, res) => {
 });
 
 const refreshUserToken = asyncHandler(async (req, res) => {
-  const refreshTokenFromCookie = req.cookies.refreshToken;
-  if (!refreshTokenFromCookie) {
+  // 📱 iOS Fallback: Check for token in body or header first
+  let refreshTokenFromCookie = req.cookies.refreshToken;
+  let refreshTokenFromBody = req.body?.refreshToken;
+  let refreshTokenFromHeader = req.headers["x-refresh-token"];
+
+  const refreshToken = refreshTokenFromCookie || refreshTokenFromBody || refreshTokenFromHeader;
+
+  if (!refreshToken) {
     throw new ApiError(401, "Refresh token not found");
   }
 
-  const user = await User.findOne({ refreshToken: refreshTokenFromCookie });
+  const user = await User.findOne({ refreshToken });
   if (!user) {
     throw new ApiError(401, "Invalid refresh token");
   }
@@ -449,10 +468,10 @@ const refreshUserToken = asyncHandler(async (req, res) => {
   }
 
   // Generate new tokens
-  const { accessToken, refreshToken } = user.generateJWT();
+  const { accessToken, newRefreshToken } = user.generateJWT();
 
   // Database mein naya refreshToken save karein
-  user.refreshToken = refreshToken;
+  user.refreshToken = newRefreshToken;
   user.refreshTokenExpireAt = new Date(
     Date.now() + ms(process.env.REFRESH_TOKEN_EXPIRES_IN)
   );
@@ -460,12 +479,16 @@ const refreshUserToken = asyncHandler(async (req, res) => {
 
   // ✅ Use dynamic cookie options for Safari compatibility
   const options = getCookieOptions(req);
+
+  // 📱 iOS Fallback: Include tokens in response body
   return res
     .status(200)
     .cookie("accessToken", accessToken, options)
-    .cookie("refreshToken", refreshToken, options)
+    .cookie("refreshToken", newRefreshToken, options)
     .json({
       success: true,
+      accessToken, // iOS fallback
+      refreshToken: newRefreshToken, // iOS fallback
     });
 });
 
