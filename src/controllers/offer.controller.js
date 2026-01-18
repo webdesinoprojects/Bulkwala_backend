@@ -3,15 +3,27 @@ import { ApiResponse } from "../utils/ApiResponse.js";
 import { ApiError } from "../utils/ApiError.js";
 import Offer from "../models/offer.model.js";
 
-/** ----------------- ADMIN: Start 15-Min Flash Offer ----------------- */
+/** ----------------- ADMIN: Start Custom Duration Offer ----------------- */
 export const startOffer = asyncHandler(async (req, res) => {
-  const { discountPercent, maxDiscountAmount } = req.body;
+  const { discountPercent, maxDiscountAmount, startDateTime, endDateTime } = req.body;
 
-  if (!discountPercent || !maxDiscountAmount) {
+  if (!discountPercent || !maxDiscountAmount || !startDateTime || !endDateTime) {
     throw new ApiError(
       400,
-      "Both discount percent and max discount are required"
+      "Discount percent, max discount, start date/time, and end date/time are required"
     );
+  }
+
+  const startDate = new Date(startDateTime);
+  const endDate = new Date(endDateTime);
+
+  // Validate dates
+  if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
+    throw new ApiError(400, "Invalid date format");
+  }
+
+  if (endDate <= startDate) {
+    throw new ApiError(400, "End date/time must be after start date/time");
   }
 
   const offer = await Offer.findOneAndUpdate(
@@ -20,13 +32,13 @@ export const startOffer = asyncHandler(async (req, res) => {
       isActive: true,
       discountPercent,
       maxDiscountAmount,
-      startedAt: Date.now(),
-      expiresAt: new Date(Date.now() + 15 * 60 * 1000),
+      startedAt: startDate,
+      expiresAt: endDate,
     },
     { upsert: true, new: true }
   );
 
-  return res.json(new ApiResponse(200, offer, "Flash offer started"));
+  return res.json(new ApiResponse(200, offer, "Offer started successfully"));
 });
 
 /** ----------------- USER: Get Active Offer ----------------- */
