@@ -141,6 +141,10 @@ const productSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+    isTopMenu: {
+      type: Boolean,
+      default: false,
+    },
   },
   { timestamps: true }
 );

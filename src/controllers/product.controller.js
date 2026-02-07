@@ -9,6 +9,13 @@ import { v4 as uuidv4 } from "uuid";
 import { generateUniqueSlug } from "../utils/slug.js";
 import slugify from "slugify";
 
+// ✅ Helper function to convert string booleans to actual booleans
+const parseBoolean = (value) => {
+  if (typeof value === "boolean") return value;
+  if (typeof value === "string") return value === "true";
+  return false;
+};
+
 const createProduct = asyncHandler(async (req, res) => {
   const {
     title,
@@ -22,6 +29,8 @@ const createProduct = asyncHandler(async (req, res) => {
     tags,
     isActive,
     isFeatured,
+    isNewlyLaunched,
+    isTopMenu,
     sku,
     color,
     genericName,
@@ -110,8 +119,10 @@ const createProduct = asyncHandler(async (req, res) => {
     category,
     subcategory,
     tags,
-    isActive,
-    isFeatured,
+    isActive: parseBoolean(isActive),
+    isFeatured: parseBoolean(isFeatured),
+    isNewlyLaunched: parseBoolean(isNewlyLaunched),
+    isTopMenu: parseBoolean(isTopMenu),
     sku,
     color,
     genericName,
@@ -129,7 +140,14 @@ const createProduct = asyncHandler(async (req, res) => {
 const getSingleProduct = asyncHandler(async (req, res) => {
   const { slug } = req.params;
 
-  const product = await Product.findOne({ slug, isDeleted: false })
+  const filter = { slug, isDeleted: false };
+
+  // If user is NOT logged in → show only active products
+  if (!req.user || (req.user.role !== "admin" && req.user.role !== "seller")) {
+    filter.isActive = true;
+  }
+
+  const product = await Product.findOne(filter)
     .populate("category", "name slug")
     .populate("subcategory", "name slug");
 
@@ -152,6 +170,7 @@ const getProducts = asyncHandler(async (req, res) => {
     sellerId,
     isFeatured,
     isNewlyLaunched,
+    isTopMenu,
   } = req.query;
 
   const filter = { isDeleted: false };
@@ -159,6 +178,9 @@ const getProducts = asyncHandler(async (req, res) => {
   // If admin/seller is logged in → show only their own products
   if (req.user && (req.user.role === "admin" || req.user.role === "seller")) {
     filter.createdBy = req.user._id;
+  } else {
+    // If user is NOT logged in → show only active products
+    filter.isActive = true;
   }
 
   // ✅ Category (ObjectId)
@@ -201,13 +223,26 @@ const getProducts = asyncHandler(async (req, res) => {
   if (sellerId) filter.createdBy = sellerId;
 
   // ✅ Featured Products Filter
-  if (isFeatured === "true") {
+  if (isFeatured === "true" || isFeatured === true) {
     filter.isFeatured = true;
   }
 
   // ✅ Newly Launched Products Filter
-  if (isNewlyLaunched === "true") {
+  if (isNewlyLaunched === "true" || isNewlyLaunched === true) {
     filter.isNewlyLaunched = true;
+    // Ensure only active products are shown for non-admin users
+    if (!req.user || (req.user.role !== "admin" && req.user.role !== "seller")) {
+      filter.isActive = true;
+    }
+  }
+
+  // ✅ Top Menu Products Filter
+  if (isTopMenu === "true" || isTopMenu === true) {
+    filter.isTopMenu = true;
+    // Ensure only active products are shown for non-admin users
+    if (!req.user || (req.user.role !== "admin" && req.user.role !== "seller")) {
+      filter.isActive = true;
+    }
   }
 
   // ✅ Price Range Filter
@@ -217,7 +252,9 @@ const getProducts = asyncHandler(async (req, res) => {
 
   // ✅ Search Filter
   if (search && search.trim() !== "") {
-    const regex = new RegExp(search.trim(), "i");
+    // Escape special regex characters to prevent regex injection
+    const escapedSearch = search.trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const regex = new RegExp(escapedSearch, "i");
     filter.$or = [
       { title: regex },
       { description: regex },
@@ -369,6 +406,7 @@ const updateProduct = asyncHandler(async (req, res) => {
     "isActive",
     "isFeatured",
     "isNewlyLaunched",
+    "isTopMenu",
     "color",
     "genericName",
     "countryOfOrigin",
@@ -378,8 +416,12 @@ const updateProduct = asyncHandler(async (req, res) => {
 
   allowedFields.forEach((field) => {
     if (updates[field] !== undefined) {
+      // ✅ Handle boolean fields
+      if (["isActive", "isFeatured", "isNewlyLaunched", "isTopMenu"].includes(field)) {
+        product[field] = parseBoolean(updates[field]);
+      }
       // ✅ Force numeric conversion for numeric fields
-      if (["price", "discountPrice", "stock", "gstSlab"].includes(field)) {
+      else if (["price", "discountPrice", "stock", "gstSlab"].includes(field)) {
         product[field] = Number(String(updates[field]).replace("%", "")) || 0;
       } else {
         product[field] = updates[field];

@@ -44,16 +44,35 @@ export const createProductSchema = z.object({
     .optional(),
   isActive: z
     .union([z.string(), z.boolean()])
-    .transform((val) => val === "true" || val === true),
+    .transform((val) => {
+      if (typeof val === "boolean") return val;
+      return val === "true";
+    }),
 
   isFeatured: z
     .union([z.string(), z.boolean()])
-    .transform((val) => val === "true" || val === true),
+    .transform((val) => {
+      if (typeof val === "boolean") return val;
+      return val === "true";
+    }),
 
   isNewlyLaunched: z
     .union([z.string(), z.boolean()])
-    .transform((val) => val === "true" || val === true)
-    .optional(),
+    .transform((val) => {
+      if (typeof val === "boolean") return val;
+      return val === "true";
+    })
+    .optional()
+    .default(false),
+
+  isTopMenu: z
+    .union([z.string(), z.boolean()])
+    .transform((val) => {
+      if (typeof val === "boolean") return val;
+      return val === "true";
+    })
+    .optional()
+    .default(false),
 
   sku: z
     .string()
@@ -137,16 +156,36 @@ export const updateProductSchema = z.object({
   tags: z.array(z.string().trim().toLowerCase()).optional(),
   isActive: z
     .union([z.string(), z.boolean()])
-    .transform((val) => val === "true" || val === true)
-    .optional(),
+    .transform((val) => {
+      if (typeof val === "boolean") return val;
+      return val === "true";
+    })
+    .optional()
+    .default(true),
   isFeatured: z
     .union([z.string(), z.boolean()])
-    .transform((val) => val === "true" || val === true)
-    .optional(),
+    .transform((val) => {
+      if (typeof val === "boolean") return val;
+      return val === "true";
+    })
+    .optional()
+    .default(false),
   isNewlyLaunched: z
     .union([z.string(), z.boolean()])
-    .transform((val) => val === "true" || val === true)
-    .optional(),
+    .transform((val) => {
+      if (typeof val === "boolean") return val;
+      return val === "true";
+    })
+    .optional()
+    .default(false),
+  isTopMenu: z
+    .union([z.string(), z.boolean()])
+    .transform((val) => {
+      if (typeof val === "boolean") return val;
+      return val === "true";
+    })
+    .optional()
+    .default(false),
   sku: z
     .string()
     .trim()
