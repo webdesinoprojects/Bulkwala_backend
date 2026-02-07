@@ -150,6 +150,8 @@ const getProducts = asyncHandler(async (req, res) => {
     page = 1,
     limit = 10,
     sellerId,
+    isFeatured,
+    isNewlyLaunched,
   } = req.query;
 
   const filter = { isDeleted: false };
@@ -197,6 +199,16 @@ const getProducts = asyncHandler(async (req, res) => {
 
   // ✅ Seller Filter
   if (sellerId) filter.createdBy = sellerId;
+
+  // ✅ Featured Products Filter
+  if (isFeatured === "true") {
+    filter.isFeatured = true;
+  }
+
+  // ✅ Newly Launched Products Filter
+  if (isNewlyLaunched === "true") {
+    filter.isNewlyLaunched = true;
+  }
 
   // ✅ Price Range Filter
   if (minPrice || maxPrice) filter.price = {};
@@ -356,6 +368,7 @@ const updateProduct = asyncHandler(async (req, res) => {
     "tags",
     "isActive",
     "isFeatured",
+    "isNewlyLaunched",
     "color",
     "genericName",
     "countryOfOrigin",

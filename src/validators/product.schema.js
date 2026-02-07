@@ -50,6 +50,11 @@ export const createProductSchema = z.object({
     .union([z.string(), z.boolean()])
     .transform((val) => val === "true" || val === true),
 
+  isNewlyLaunched: z
+    .union([z.string(), z.boolean()])
+    .transform((val) => val === "true" || val === true)
+    .optional(),
+
   sku: z
     .string()
     .trim()
@@ -130,8 +135,18 @@ export const updateProductSchema = z.object({
     .regex(/^[0-9a-fA-F]{24}$/)
     .optional(),
   tags: z.array(z.string().trim().toLowerCase()).optional(),
-  isActive: z.boolean().optional(),
-  isFeatured: z.boolean().optional(),
+  isActive: z
+    .union([z.string(), z.boolean()])
+    .transform((val) => val === "true" || val === true)
+    .optional(),
+  isFeatured: z
+    .union([z.string(), z.boolean()])
+    .transform((val) => val === "true" || val === true)
+    .optional(),
+  isNewlyLaunched: z
+    .union([z.string(), z.boolean()])
+    .transform((val) => val === "true" || val === true)
+    .optional(),
   sku: z
     .string()
     .trim()
