@@ -22,26 +22,30 @@ import { globalErrorHandler } from "./middleware/globalError.middleware.js";
 const app = express();
 app.set("trust proxy", 1);
 
-// Parse array from .env
-let allowedOrigins = [];
-
-try {
-  allowedOrigins = JSON.parse(process.env.FRONTEND_URL);
-} catch (err) {
-  console.error("❌ FRONTEND_URL is not a valid JSON array");
-  allowedOrigins = ["http://localhost:5173"];
-}
+// ✅ CORS Configuration - Allow frontend origins
+const allowedOrigins = [
+  "http://localhost:5173",
+  "http://localhost:3000",
+  "https://bulkwala.com",
+  "https://www.bulkwala.com",
+  "https://bulkwala-frontend.onrender.com",
+  process.env.FRONTEND_URL, // From environment variable
+].filter(Boolean); // Remove undefined values
 
 app.use(
   cors({
     origin: (origin, callback) => {
-      if (!origin) return callback(null, true); // Mobile apps / Postman allowed
+      // Allow requests with no origin (like mobile apps or Postman)
+      if (!origin) return callback(null, true);
 
+      // Check if origin is in allowed list
       if (allowedOrigins.includes(origin)) {
         return callback(null, true);
       }
 
-      return callback(new Error("❌ CORS blocked: " + origin));
+      // Log blocked origins for debugging
+      console.warn(`⚠️ CORS blocked: ${origin}`);
+      return callback(new Error("CORS not allowed for this origin"));
     },
     credentials: true,
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
@@ -53,6 +57,7 @@ app.use(
       "Origin",
     ],
     exposedHeaders: ["Set-Cookie"],
+    maxAge: 86400, // 24 hours
   })
 );
 
@@ -69,6 +74,10 @@ app.use(
     },
   })
 );
+
+// ✅ Handle preflight requests
+app.options("*", cors());
+
 app.use(cookieParser());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
