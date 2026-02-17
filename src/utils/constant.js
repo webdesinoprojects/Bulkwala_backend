@@ -12,15 +12,17 @@ export const getCookieOptions = (req) => {
       sameSite: "Lax", // More permissive for iOS
       path: "/",
       maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+      domain: isProd ? ".bulkwala.com" : undefined, // Allow subdomain access in production
     };
   }
 
   return {
     httpOnly: true,
     secure: isProd, // required for SameSite=None
-    sameSite: "None", // allows cross-site cookies (bulkwala.com → render.com)
+    sameSite: isProd ? "None" : "Lax", // Use None only in production for cross-site
     path: "/", // accessible everywhere
     maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+    domain: isProd ? ".bulkwala.com" : undefined, // Allow subdomain access in production
   };
 };
 

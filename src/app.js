@@ -44,7 +44,9 @@ app.use(
       }
 
       // Log blocked origins for debugging
-      console.warn(`⚠️ CORS blocked: ${origin}`);
+      if (process.env.NODE_ENV === "development") {
+        console.warn(`⚠️ CORS blocked: ${origin}`);
+      }
       return callback(new Error("CORS not allowed for this origin"));
     },
     credentials: true,
