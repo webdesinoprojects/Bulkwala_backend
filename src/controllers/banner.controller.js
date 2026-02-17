@@ -7,7 +7,7 @@ import { v4 as uuidv4 } from "uuid";
 
 /** ----------------- ADMIN: Upload Banner Set (1–3 images) ----------------- */
 export const uploadBanner = asyncHandler(async (req, res) => {
-  const { title, ctaLink } = req.body;
+  const { title, ctaLink, position } = req.body;
 
   // Ensure at least one image is uploaded
   if (!req.files || req.files.length === 0) {
@@ -17,6 +17,9 @@ export const uploadBanner = asyncHandler(async (req, res) => {
   if (req.files.length > 3) {
     throw new ApiError(400, "A banner set can contain a maximum of 3 images");
   }
+
+  // Validate position
+  const validPosition = ["top", "bottom"].includes(position) ? position : "top";
 
   // Upload all images to ImageKit
   const uploadedUrls = await Promise.all(
@@ -40,6 +43,7 @@ export const uploadBanner = asyncHandler(async (req, res) => {
     title,
     images: uploadedUrls,
     ctaLink,
+    position: validPosition,
     isActive: true,
   });
 
@@ -48,9 +52,16 @@ export const uploadBanner = asyncHandler(async (req, res) => {
     .json(new ApiResponse(201, banner, "Banner set uploaded successfully"));
 });
 
-/** ----------------- USER: Get Active Banners ----------------- */
+/** ----------------- USER: Get Active Banners by Position ----------------- */
 export const getActiveBanners = asyncHandler(async (req, res) => {
-  const banners = await Banner.find({ isActive: true }).sort({ createdAt: -1 });
+  const { position } = req.query;
+  
+  const query = { isActive: true };
+  if (position && ["top", "bottom"].includes(position)) {
+    query.position = position;
+  }
+  
+  const banners = await Banner.find(query).sort({ createdAt: -1 });
   return res
     .status(200)
     .json(new ApiResponse(200, banners, "Active banners fetched"));

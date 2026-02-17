@@ -260,6 +260,7 @@ const getProducts = asyncHandler(async (req, res) => {
       { description: regex },
       { tags: regex },
       { slug: regex },
+      { sku: regex },
     ];
   }
 
