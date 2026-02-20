@@ -19,7 +19,7 @@ export const uploadBanner = asyncHandler(async (req, res) => {
   }
 
   // Validate position
-  const validPosition = ["top", "bottom"].includes(position) ? position : "top";
+  const validPosition = ["top", "mid", "bottom"].includes(position) ? position : "top";
 
   // Upload all images to ImageKit
   const uploadedUrls = await Promise.all(
@@ -57,7 +57,7 @@ export const getActiveBanners = asyncHandler(async (req, res) => {
   const { position } = req.query;
   
   const query = { isActive: true };
-  if (position && ["top", "bottom"].includes(position)) {
+  if (position && ["top", "mid", "bottom"].includes(position)) {
     query.position = position;
   }
   

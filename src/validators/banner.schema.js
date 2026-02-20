@@ -11,4 +11,11 @@ export const uploadBannerSchema = z.object({
     .trim()
     .url({ message: "CTA link must be a valid URL" })
     .optional(),
+  position: z
+    .enum(["top", "mid", "bottom"], {
+      errorMap: () => ({
+        message: "Banner position must be 'top', 'mid', or 'bottom'",
+      }),
+    })
+    .default("top"),
 });

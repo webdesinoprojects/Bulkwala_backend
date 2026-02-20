@@ -21,7 +21,7 @@ const bannerSchema = new mongoose.Schema(
     },
     position: {
       type: String,
-      enum: ["top", "bottom"],
+      enum: ["top", "mid", "bottom"],
       default: "top",
     },
     isActive: {
