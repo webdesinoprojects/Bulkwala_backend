@@ -12,9 +12,9 @@ export const uploadBannerSchema = z.object({
     .url({ message: "CTA link must be a valid URL" })
     .optional(),
   position: z
-    .enum(["top", "bottom"], {
+    .enum(["top", "mid", "bottom", "promo", "bulk-orders"], {
       errorMap: () => ({
-        message: "Banner position must be either 'top' or 'bottom'",
+        message: "Banner position must be either 'top', 'mid', 'bottom', 'promo', or 'bulk-orders'",
       }),
     })
     .default("top"),
