@@ -175,13 +175,15 @@ const getProducts = asyncHandler(async (req, res) => {
 
   const filter = { isDeleted: false };
 
-  // If admin/seller is logged in → show only their own products
-  if (req.user && (req.user.role === "admin" || req.user.role === "seller")) {
+  // If admin is logged in → show all products
+  // If seller is logged in → show only their own products
+  // If user is NOT logged in → show only active products
+  if (req.user && req.user.role === "seller") {
     filter.createdBy = req.user._id;
-  } else {
-    // If user is NOT logged in → show only active products
+  } else if (!req.user || (req.user.role !== "admin" && req.user.role !== "seller")) {
     filter.isActive = true;
   }
+  // Admin sees all products (no createdBy filter)
 
   // ✅ Category (ObjectId)
   if (category) filter.category = category;
@@ -267,10 +269,11 @@ const getProducts = asyncHandler(async (req, res) => {
   // ✅ Pagination
   const skip = (Number(page) - 1) * Number(limit);
 
-  // ✅ Fetch Products
+  // ✅ Fetch Products (sorted by newest first)
   const products = await Product.find(filter)
     .populate("category", "name slug")
     .populate("subcategory", "name slug")
+    .sort({ createdAt: -1 })
     .skip(skip)
     .limit(Number(limit))
     .lean();
@@ -296,8 +299,9 @@ const updateProduct = asyncHandler(async (req, res) => {
   if (!product) throw new ApiError(404, "Product not found");
 
   //  Ownership check
-  // Admin & Seller can ONLY edit their own products
-  if (product.createdBy.toString() !== req.user._id.toString()) {
+  // Admin can edit ANY product
+  // Seller can ONLY edit their own products
+  if (req.user.role !== "admin" && product.createdBy.toString() !== req.user._id.toString()) {
     throw new ApiError(403, "You can only update your own products");
   }
 
@@ -449,8 +453,9 @@ const deleteProduct = asyncHandler(async (req, res) => {
   if (!product) throw new ApiError(404, "Product not found or already deleted");
 
   //  Ownership check
-  // Admin & Seller can ONLY delete their own products
-  if (product.createdBy.toString() !== req.user._id.toString()) {
+  // Admin can delete ANY product
+  // Seller can ONLY delete their own products
+  if (req.user.role !== "admin" && product.createdBy.toString() !== req.user._id.toString()) {
     throw new ApiError(403, "You can only delete your own products");
   }
 
