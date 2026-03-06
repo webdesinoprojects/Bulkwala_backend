@@ -58,6 +58,26 @@ const isAdminOrSeller = (req, _res, next) => {
   return next(new ApiError(403, "Forbidden Access"));
 };
 
+// Populates req.user if a valid token is present, but never blocks the request
+const optionalAuth = async (req, _res, next) => {
+  try {
+    let accessToken = req.cookies?.accessToken;
+    if (!accessToken && req.headers.authorization?.startsWith("Bearer ")) {
+      accessToken = req.headers.authorization.slice(7);
+    }
+    if (accessToken) {
+      try {
+        req.user = jwt.verify(accessToken, process.env.ACCESS_TOKEN_SECRET);
+      } catch {
+        // invalid/expired token — just continue as guest
+      }
+    }
+  } catch {
+    // swallow any unexpected error
+  }
+  next();
+};
+
 const isCustomer = (req, _res, next) => {
   if (req.user.role !== userRoleEnum.CUSTOMER) {
     return next(new ApiError(403, "Forbidden: Only customers allowed"));
@@ -65,4 +85,4 @@ const isCustomer = (req, _res, next) => {
   next();
 };
 
-export { isLoggedIn, isAdmin, isSeller, isAdminOrSeller, isCustomer };
+export { isLoggedIn, isAdmin, isSeller, isAdminOrSeller, isCustomer, optionalAuth };

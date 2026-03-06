@@ -13,6 +13,7 @@ import {
   isLoggedIn,
   isAdmin,
   isAdminOrSeller,
+  optionalAuth,
 } from "../middleware/auth.middleware.js";
 import { validateData } from "../middleware/validate.js";
 import {
@@ -22,7 +23,7 @@ import {
 
 const router = express.Router();
 
-router.route("/").get(getProducts);
+router.route("/").get(optionalAuth, getProducts);
 
 router.route("/:slug").get(getSingleProduct);
 

@@ -46,6 +46,19 @@ const createProduct = asyncHandler(async (req, res) => {
   const existingSlug = await Product.findOne({ slug, isDeleted: false });
   if (existingSlug) throw new ApiError(400, "Product slug already exists");
 
+  // ✅ Pre-check SKU uniqueness (including soft-deleted records)
+  if (sku && sku.trim() !== "") {
+    const skuConflict = await Product.findOne({ sku: sku.trim() });
+    if (skuConflict) {
+      if (skuConflict.isDeleted) {
+        // Free the SKU from the deleted product so the new one can use it
+        await Product.updateOne({ _id: skuConflict._id }, { $unset: { sku: "" } });
+      } else {
+        throw new ApiError(400, `SKU "${sku.trim()}" is already in use by another product.`);
+      }
+    }
+  }
+
   const parentCategory = await Category.findOne({
     _id: category,
     isDeleted: false,
@@ -171,19 +184,24 @@ const getProducts = asyncHandler(async (req, res) => {
     isFeatured,
     isNewlyLaunched,
     isTopMenu,
+    showDeleted,
   } = req.query;
 
-  const filter = { isDeleted: false };
+  const isAdmin = req.user && req.user.role === "admin";
+
+  // Admins can opt-in to see deleted products
+  const filter = (isAdmin && showDeleted === "true")
+    ? {}
+    : { isDeleted: false };
 
   // If admin is logged in → show all products
   // If seller is logged in → show only their own products
   // If user is NOT logged in → show only active products
   if (req.user && req.user.role === "seller") {
     filter.createdBy = req.user._id;
-  } else if (!req.user || (req.user.role !== "admin" && req.user.role !== "seller")) {
+  } else if (!req.user || (!isAdmin && req.user.role !== "seller")) {
     filter.isActive = true;
   }
-  // Admin sees all products (no createdBy filter)
 
   // ✅ Category (ObjectId)
   if (category) filter.category = category;
@@ -449,26 +467,20 @@ const updateProduct = asyncHandler(async (req, res) => {
 const deleteProduct = asyncHandler(async (req, res) => {
   const { slug } = req.params;
 
-  const product = await Product.findOne({ slug, isDeleted: false });
-  if (!product) throw new ApiError(404, "Product not found or already deleted");
+  const product = await Product.findOne({ slug });
+  if (!product) throw new ApiError(404, "Product not found");
 
-  //  Ownership check
   // Admin can delete ANY product
   // Seller can ONLY delete their own products
   if (req.user.role !== "admin" && product.createdBy.toString() !== req.user._id.toString()) {
     throw new ApiError(403, "You can only delete your own products");
   }
 
-  product.isDeleted = true;
-  product.deletedAt = new Date();
-  product.deletedBy = req.user._id;
-  await product.save();
+  await Product.findOneAndDelete({ slug });
 
   return res
     .status(200)
-    .json(
-      new ApiResponse(200, null, "Product deleted successfully (soft delete)")
-    );
+    .json(new ApiResponse(200, null, "Product deleted successfully"));
 });
 
 const restoreProduct = asyncHandler(async (req, res) => {
