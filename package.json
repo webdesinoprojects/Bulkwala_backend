@@ -7,7 +7,11 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "dev": "nodemon src/index.js",
-    "start": "node src/index.js"
+    "start": "node src/index.js",
+    "count-banners": "node scripts/countBanners.js",
+    "count-banners-detailed": "node scripts/countBannersDetailed.js",
+    "delete-mid-banners": "node scripts/deleteMidBanners.js",
+    "add-mid-banners": "node scripts/addMidBanners.js"
   },
   "keywords": [],
   "author": "",
