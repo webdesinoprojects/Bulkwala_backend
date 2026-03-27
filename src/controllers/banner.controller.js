@@ -38,12 +38,14 @@ export const uploadBanner = asyncHandler(async (req, res) => {
     })
   );
 
-  // Save in DB
+  const existingBannersCount = await Banner.countDocuments({ position: validPosition });
+
   const banner = await Banner.create({
     title,
     images: uploadedUrls,
     ctaLink,
     position: validPosition,
+    priority: existingBannersCount,
     isActive: true,
   });
 
@@ -61,7 +63,7 @@ export const getActiveBanners = asyncHandler(async (req, res) => {
     query.position = position;
   }
   
-  const banners = await Banner.find(query).sort({ createdAt: -1 });
+  const banners = await Banner.find(query).sort({ priority: 1, createdAt: -1 });
   return res
     .status(200)
     .json(new ApiResponse(200, banners, "Active banners fetched"));
@@ -69,7 +71,7 @@ export const getActiveBanners = asyncHandler(async (req, res) => {
 
 /** ----------------- ADMIN: Get All Banners ----------------- */
 export const getAllBanners = asyncHandler(async (req, res) => {
-  const banners = await Banner.find().sort({ createdAt: -1 });
+  const banners = await Banner.find().sort({ priority: 1, createdAt: -1 });
   return res
     .status(200)
     .json(new ApiResponse(200, banners, "All banners fetched successfully"));
@@ -104,4 +106,23 @@ export const deleteBanner = asyncHandler(async (req, res) => {
   return res
     .status(200)
     .json(new ApiResponse(200, null, "Banner deleted successfully"));
+});
+
+/** ----------------- ADMIN: Update Banner Priorities ----------------- */
+export const updateBannerPriorities = asyncHandler(async (req, res) => {
+  const { banners } = req.body;
+
+  if (!Array.isArray(banners) || banners.length === 0) {
+    throw new ApiError(400, "Banners array is required");
+  }
+
+  const updatePromises = banners.map(({ id, priority }) =>
+    Banner.findByIdAndUpdate(id, { priority }, { new: true })
+  );
+
+  await Promise.all(updatePromises);
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, null, "Banner priorities updated successfully"));
 });

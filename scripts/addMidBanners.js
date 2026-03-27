@@ -29,6 +29,7 @@ const addMidBanners = async () => {
         ],
         ctaLink: "/products",
         position: "mid",
+        priority: 0,
         isActive: true,
       },
       {
@@ -38,6 +39,7 @@ const addMidBanners = async () => {
         ],
         ctaLink: "/products",
         position: "mid",
+        priority: 1,
         isActive: true,
       },
       {
@@ -47,6 +49,7 @@ const addMidBanners = async () => {
         ],
         ctaLink: "/products",
         position: "mid",
+        priority: 2,
         isActive: true,
       },
     ];

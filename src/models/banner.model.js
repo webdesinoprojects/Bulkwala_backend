@@ -24,6 +24,10 @@ const bannerSchema = new mongoose.Schema(
       enum: ["top", "mid", "bottom", "promo", "bulk-orders"],
       default: "top",
     },
+    priority: {
+      type: Number,
+      default: 0,
+    },
     isActive: {
       type: Boolean,
       default: true,
