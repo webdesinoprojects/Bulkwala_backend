@@ -17,6 +17,7 @@ import couponRoutes from "./routes/coupon.routes.js";
 import referralRoutes from "./routes/referral.routes.js";
 import offerRoutes from "./routes/offer.routes.js";
 import bannerRoutes from "./routes/banner.routes.js";
+import sitemapRoutes from "./routes/sitemap.routes.js";
 import { globalErrorHandler } from "./middleware/globalError.middleware.js";
 
 const app = express();
@@ -97,6 +98,9 @@ app.use("/api/coupons", couponRoutes);
 app.use("/api/referrals", referralRoutes);
 app.use("/api/offers", offerRoutes);
 app.use("/api/banners", bannerRoutes);
+
+// Sitemap route (SEO)
+app.use("/", sitemapRoutes);
 
 // Global Error Handler - always last middleware
 app.use(globalErrorHandler);
