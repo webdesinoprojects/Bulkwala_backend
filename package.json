@@ -11,7 +11,8 @@
     "count-banners": "node scripts/countBanners.js",
     "count-banners-detailed": "node scripts/countBannersDetailed.js",
     "delete-mid-banners": "node scripts/deleteMidBanners.js",
-    "add-mid-banners": "node scripts/addMidBanners.js"
+    "add-mid-banners": "node scripts/addMidBanners.js",
+    "build": "node --check src/index.js"
   },
   "keywords": [],
   "author": "",

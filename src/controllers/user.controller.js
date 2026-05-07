@@ -146,7 +146,7 @@ const loginUser = asyncHandler(async (req, res) => {
   // 🔥 FIX: SAVE REFRESH TOKEN
   user.refreshToken = refreshToken;
   user.refreshTokenExpireAt = new Date(
-    Date.now() + ms(process.env.REFRESH_TOKEN_EXPIRES_IN)
+    Date.now() + ms(process.env.REFRESH_TOKEN_EXPIRES_IN || "30d")
   );
   await user.save({ validateBeforeSave: false });
 
@@ -197,7 +197,7 @@ const verifyOtpLogin = asyncHandler(async (req, res) => {
 
   user.refreshToken = refreshToken;
   user.refreshTokenExpireAt = new Date(
-    Date.now() + ms(process.env.REFRESH_TOKEN_EXPIRES_IN)
+    Date.now() + ms(process.env.REFRESH_TOKEN_EXPIRES_IN || "30d")
   );
 
   await user.save({ validateBeforeSave: false });
@@ -451,6 +451,9 @@ const refreshUserToken = asyncHandler(async (req, res) => {
   let refreshTokenFromCookie = req.cookies.refreshToken;
   let refreshTokenFromBody = req.body?.refreshToken;
   let refreshTokenFromHeader = req.headers["x-refresh-token"];
+  if (!refreshTokenFromHeader && req.headers.authorization?.startsWith("Bearer ")) {
+    refreshTokenFromHeader = req.headers.authorization.slice(7);
+  }
 
   const refreshToken = refreshTokenFromCookie || refreshTokenFromBody || refreshTokenFromHeader;
 
@@ -468,12 +471,12 @@ const refreshUserToken = asyncHandler(async (req, res) => {
   }
 
   // Generate new tokens
-  const { accessToken, newRefreshToken } = user.generateJWT();
+  const { accessToken, refreshToken: newRefreshToken } = user.generateJWT();
 
   // Database mein naya refreshToken save karein
   user.refreshToken = newRefreshToken;
   user.refreshTokenExpireAt = new Date(
-    Date.now() + ms(process.env.REFRESH_TOKEN_EXPIRES_IN)
+    Date.now() + ms(process.env.REFRESH_TOKEN_EXPIRES_IN || "30d")
   );
   await user.save({ validateBeforeSave: false });
 
@@ -485,11 +488,10 @@ const refreshUserToken = asyncHandler(async (req, res) => {
     .status(200)
     .cookie("accessToken", accessToken, options)
     .cookie("refreshToken", newRefreshToken, options)
-    .json({
-      success: true,
-      accessToken, // iOS fallback
-      refreshToken: newRefreshToken, // iOS fallback
-    });
+    .json(new ApiResponse(200, {
+      accessToken,
+      refreshToken: newRefreshToken,
+    }, "Token refreshed successfully"));
 });
 
 const logoutUser = asyncHandler(async (req, res) => {

@@ -103,6 +103,8 @@ userSchema.methods.isPasswordCorrect = async function (candidatePassword) {
 };
 
 userSchema.methods.generateJWT = function () {
+  const refreshTokenExpiresIn = process.env.REFRESH_TOKEN_EXPIRES_IN || "30d";
+
   const accessToken = jwt.sign(
     {
       _id: this._id,
@@ -119,7 +121,7 @@ userSchema.methods.generateJWT = function () {
       _id: this._id,
     },
     process.env.REFRESH_TOKEN_SECRET,
-    { expiresIn: process.env.REFRESH_TOKEN_EXPIRES_IN }
+    { expiresIn: refreshTokenExpiresIn }
   );
   return { accessToken, refreshToken };
 };

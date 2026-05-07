@@ -3,6 +3,7 @@ export const getCookieOptions = (req) => {
   const isProd = process.env.NODE_ENV === "production";
   const isIOS = req.headers["user-agent"]?.toLowerCase().includes("iphone") || 
                 req.headers["user-agent"]?.toLowerCase().includes("ipad");
+  const rememberMeMaxAge = 30 * 24 * 60 * 60 * 1000; // 30 days
 
   // iOS has strict cookie policies, so we use less restrictive settings for iOS
   if (isIOS) {
@@ -11,7 +12,7 @@ export const getCookieOptions = (req) => {
       secure: isProd,
       sameSite: "Lax", // More permissive for iOS
       path: "/",
-      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+      maxAge: rememberMeMaxAge,
       domain: isProd ? ".bulkwala.com" : undefined, // Allow subdomain access in production
     };
   }
@@ -21,7 +22,7 @@ export const getCookieOptions = (req) => {
     secure: isProd, // required for SameSite=None
     sameSite: isProd ? "None" : "Lax", // Use None only in production for cross-site
     path: "/", // accessible everywhere
-    maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+    maxAge: rememberMeMaxAge,
     domain: isProd ? ".bulkwala.com" : undefined, // Allow subdomain access in production
   };
 };
