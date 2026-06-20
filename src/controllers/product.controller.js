@@ -214,10 +214,14 @@ const getProducts = asyncHandler(async (req, res) => {
     if (isObjectId) {
       filter.subcategory = subcategory;
     } else {
-      const sub = await Subcategory.findOne({
-        name: { $regex: new RegExp(subcategory, "i") },
-        isDeleted: false,
-      }).select("_id");
+const escapedSubcategory = subcategory
+  .trim()
+  .replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+const sub = await Subcategory.findOne({
+  name: { $regex: new RegExp(`^${escapedSubcategory}$`, "i") },
+  isDeleted: false,
+}).select("_id");
 
       if (sub) {
         filter.subcategory = sub._id;
