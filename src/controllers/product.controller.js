@@ -270,9 +270,23 @@ const sub = await Subcategory.findOne({
   }
 
   // ✅ Price Range Filter
-  if (minPrice || maxPrice) filter.price = {};
-  if (minPrice) filter.price.$gte = Number(minPrice);
-  if (maxPrice) filter.price.$lte = Number(maxPrice);
+  if (minPrice || maxPrice) {
+  const min = minPrice ? Number(minPrice) : 0;
+  const max = maxPrice ? Number(maxPrice) : Number.MAX_SAFE_INTEGER;
+
+  filter.$and = filter.$and || [];
+  filter.$and.push({
+    $or: [
+      {
+        discountPrice: { $gt: 0, $gte: min, $lte: max },
+      },
+      {
+        $or: [{ discountPrice: { $exists: false } }, { discountPrice: 0 }],
+        price: { $gte: min, $lte: max },
+      },
+    ],
+  });
+}
 
   // ✅ Search Filter
   if (search && search.trim() !== "") {
